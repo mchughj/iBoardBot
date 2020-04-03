@@ -1,6 +1,5 @@
 
 import time
-import struct
 import argparse
 
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -9,6 +8,8 @@ from functools import partial
 import logging
 import urllib.parse
 import threading
+
+import bbcs
 
 logging.basicConfig(level=logging.DEBUG, format='(%(threadName)-10s) %(message)s')
 
@@ -20,44 +21,23 @@ config = parser.parse_args()
 DEVICE_URL_PREFIX = "/ibb-device/"
 CLIENT_ID = "ID_IWBB"
 
-
-def moveToPos(x, y):
-  full       = (x << 12) + y
-
-  msbByte    = (full >> 16 ) & 0xFF
-  middleByte = (full >> 8 )  & 0xFF
-  lsbByte    = (full)        & 0xFF
-
-  return struct.pack("BBB", msbByte, middleByte, lsbByte)
-
-
-def block(blockNumber):
-  full       = (4009 << 12) + blockNumber            #   4009 0001   [FA9001]     # Block number 0001 (example)
-
-  msbByte    = (full >> 16 ) & 0xFF
-  middleByte = (full >> 8 )  & 0xFF
-  lsbByte    = (full)        & 0xFF
-
-  return struct.pack("BBB", msbByte, middleByte, lsbByte)
-
-
 def mockDrawData(size = 0):
   if size == 0:
-    result  = struct.pack("BBB", 0xFA, 0x30, 0x00 )   #   4003 0000   [FA3000]    # pen lift
-    result += struct.pack("BBB", 0x00, 0x00, 0x00 )   #   0000 0000   [000000]    # Move to X = 0, Y = 0
-    result += struct.pack("BBB", 0x3E, 0x83, 0xE8 )   #   1000 1000   [3E83E8]    # Move to X = 100mm, Y = 100mm (1000 of 0.1mm)
-    result += struct.pack("BBB", 0xFA, 0x40, 0x00 )   #   4004 0000   [FA4000]    # pen down (draw)
-    result += struct.pack("BBB", 0x5D, 0xC3, 0xE8 )   #   1500 1000   [5DC3E8]    # Move to X = 150mm, Y = 100mm
-    result += struct.pack("BBB", 0xFA, 0x30, 0x00 )   #   4003 0000   [FA3000]    # Pen lift
+    result  = bbcs.liftPen()
+    result += bbcs.moveTo(0,0)
+    result += bbcs.moveTo(1000, 1000)
+    result += bbcs.dropPen() 
+    result += bbcs.moveTo(1500, 1000)
+    result += bbcs.liftPen()
   else:
-    result  = struct.pack("BBB", 0xFA, 0x30, 0x00 )   #   4003 0000   [FA3000]    # pen lift
-    result += struct.pack("BBB", 0x00, 0x00, 0x00 )   #   0000 0000   [000000]    # Move to X = 0, Y = 0
+    result  = bbcs.liftPen()
+    result += bbcs.moveTo(0,0)
     for x in range(size * 2):
       for y in range(size * 5):
-        result += moveToPos(1000 + (x*100), 1000 - (y*50))   #  - Move - 
-        result += struct.pack("BBB", 0xFA, 0x40, 0x00 )      #   4004 0000   [FA4000]    # pen down (draw)
-        result += moveToPos(1075 + (x*100), 1000 - (y*50))   #  - Move - 
-        result += struct.pack("BBB", 0xFA, 0x30, 0x00 )      #   4003 0000   [FA3000]    # Pen lift
+        result += bbcs.moveTo(1000 + (x*100), 1000 - (y*25))   #  - Move - 
+        result += bbcs.dropPen() 
+        result += bbcs.moveTo(1050 + (x*100), 1000 - (y*25))   #  - Move - 
+        result += bbcs.liftPen() 
 
   logging.info("mockData - done; size: %d, resultSize: %d", size, len(result))
   return result
@@ -134,22 +114,19 @@ class Client(object):
     logging.info("addNewDrawing - done; numBlocks: %d", numBlocks)
 
   def _addHeaderToData(self, isFirst, blockNumber, payload):
+    result  = bbcs.packetStart()
+    result += bbcs.blockIdentifier(blockNumber) 
+
     if isFirst:
-      result  = block(4001) 
-      result += block(blockNumber) 
-      result += struct.pack("BBB", 0xFA, 0x1F, 0xA1 )           #   4001 4001   [FA1FA1]    # Start drawing (new draw)
-      result += payload
-      return result
-    else:
-      result  = block(4001) 
-      result += block(blockNumber)                              
-      result += payload
-      return result
+      result += bbcs.startDrawing()
+
+    result += payload
+    return result
 
   def _addFooterToData(self, payload):
     result  = payload 
-    result += struct.pack("BBB", 0x00, 0x00, 0x00 )             #   0000 0000   [000000]    # Move to 0,0
-    result += struct.pack("BBB", 0xFA, 0x20, 0x00 )             #   4002 0000   [FA2000]    # Stop drawing
+    result += bbcs.moveTo(0,0)
+    result += bbcs.stopDrawing()
     return result
 
   def _addNewBlock(self, isFirst, data):
