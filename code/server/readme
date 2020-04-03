@@ -1,0 +1,89 @@
+
+In the firmware for the iBoardBot the location of what is used to get commands
+appears in Configuration.h:
+
+#define SERVER_HOST "ibb.jjrobots.com"
+#define SERVER_URL "http://ibb.jjrobots.com/ibbsvr/ibb.php"
+
+Some support in WifiESP for a 'proxy'.  Mostly not useful.
+
+--
+
+Message size comes first
+  message_size = message_size * 10 + int(ch - '0');
+Has to be less than 1460 bytes.
+
+Then it reads until it gets the packet start:
+
+// Detecting packet start 4009 4001 (FA9,FA1)(mc2=0xFA,mc1=0x9F,mc0=0xA1)
+if ((uint8_t(mc2) == 0b11111010) && (uint8_t(mc1) == 0b10011111) && (uint8_t(mc0) == 0b10100001)) {
+
+Then it shoves all of the bytes into the buffer. 
+
+Then it looks for 'CLOSED'
+
+--
+
+When we get a full response then we do this:
+
+ commands_lines = message_size / 3;
+ commands_index = 0;
+ if (message_size == MAX_PACKET_SIZE)
+   Serial.println(F("MORE BLOCKS!"));
+ draw_task = true;
+ new_packet = true;
+ digitalWrite(4, LOW); // Enable motors...
+ show_command = true;
+ timeout_counter = 0;
+ draw_init_time = millis();
+
+Then we confirm that a 'new packet' has the right start:
+
+  if ((new_packet) && (code1 != 4009)) { // check new packet
+      
+--
+ else if ((code1 == 4001) && (code2 == 4001)) { // START DRAWING
+--
+ else if (code1 == 4002) { // END DRAWING
+--
+ else if (code1 == 4003) { // Pen lift command
+--
+ else if (code1 == 4004) { // Pen down command
+--
+ else if (code1 == 4005) { // Eraser command
+--
+ else if (code1 == 4006) { // Wait command
+--
+ if ((code1 < 10) && (code2 < 10)) { // Home position?
+    setPosition_mm10(code1, code2);
+    home_position = true;
+ } else {
+    setPosition_mm10(code1 + PAINT_OFFSET_X * 10, code2 + PAINT_OFFSET_Y * 10);
+    home_position = false;
+ }
+           
+--
+
+Commands sent to the server:
+
+        // Ready for new blocks...
+        strcpy(get_string, SERVER_URL);
+        strcat(get_string, "?ID_IWBB=");
+        strcat(get_string, MAC);
+        strcat(get_string, "&STATUS=READY");
+        response = ESPsendHTTP(get_string);
+      }
+      else {
+        // ACK last block and ready for new one...
+        strcpy(get_string, SERVER_URL);
+        strcat(get_string, "?ID_IWBB=");
+        strcat(get_string, MAC);
+        strcat(get_string, "&STATUS=ACK&NUM=");
+        char num[6];
+        sprintf(num, "%d", block_number);
+        strcat(get_string, num);
+        response = ESPsendHTTP(get_string);
+  
+
+ 
+
