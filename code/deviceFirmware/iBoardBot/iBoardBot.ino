@@ -600,8 +600,7 @@ void loop()
         strcat(get_string, MAC);
         strcat(get_string, "&STATUS=READY");
         response = ESPsendHTTP(get_string);
-      }
-      else {
+      } else {
         // ACK last block and ready for new one...
         strcpy(get_string, SERVER_URL);
         strcat(get_string, "?ID_IWBB=");

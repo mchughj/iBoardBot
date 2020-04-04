@@ -126,6 +126,7 @@ class Client(object):
   def _addFooterToData(self, payload):
     result  = payload 
     result += bbcs.moveTo(0,0)
+    result += bbcs.eraserDown()
     result += bbcs.stopDrawing()
     return result
 
@@ -235,6 +236,9 @@ class MyHandler(BaseHTTPRequestHandler):
       self.sendText("|")
       urlEncodedArgs = urllib.parse.urlencode({CLIENT_ID:c})
       self.sendText("<a href=\"/erase?{args}\">Erase</a>".format(args=urlEncodedArgs))
+      self.sendText("|")
+      urlEncodedArgs = urllib.parse.urlencode({CLIENT_ID:c, "x1":1200, "y1": 800, "x2": 1300, "y2": 950})
+      self.sendText("<a href=\"/erase?{args}\">Erase Middle</a>".format(args=urlEncodedArgs))
       self.sendText("]")
       self.sendText("</td>")
       self.sendText("</tr>")
@@ -269,6 +273,15 @@ class MyHandler(BaseHTTPRequestHandler):
     c = self.clientManager.getClient(clientId)
     c.addNewDrawing(bbcs.eraseAll())
 
+  def erasePortion(self, clientId, x1, y1, x2, y2):
+    if not x1 < x2:
+      raise "X1 must be less than x2"
+    if not y1 < y2:
+      raise "Y1 must be less than Y2"
+
+    c = self.clientManager.getClient(clientId)
+    c.addNewDrawing(bbcs.erasePortion(x1,y1,x2,y2))
+
   def addMockData(self, clientId, size):
     c = self.clientManager.getClient(clientId)
     c.addNewDrawing(mockDrawData(size))
@@ -293,7 +306,16 @@ class MyHandler(BaseHTTPRequestHandler):
       self.showMainMenu("Queue cleared!")
     elif self.path == "/erase":
       clientId = self.args[CLIENT_ID][0]
-      self.erase(clientId)
+
+      if self.args["x1"]:
+        x1 = int(self.args["x1"][0])
+        x2 = int(self.args["x2"][0])
+        y1 = int(self.args["y1"][0])
+        y2 = int(self.args["y2"][0])
+        self.erasePortion(clientId, x1, y1, x2, y2)
+      else:
+        self.erase(clientId)
+
       self.showMainMenu("Erased!")
     elif self.path == "/addMockData":
       clientId = self.args[CLIENT_ID][0]

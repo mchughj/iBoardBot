@@ -63,3 +63,37 @@ def eraseAll():
   result += moveTo(0, 0)
 
   return result
+
+def erasePortion(x1,y1,x2,y2):
+  result  = liftPen()
+  result += moveTo(x1,y1)
+  result += eraserDown()
+
+  x1 -= 50
+  if x1 < 0:
+      x1 = 0
+  x2 += 50
+  if x2 > 3580:
+      x2 = 3580
+  
+  y1 -= 50
+  if y1 < 0:
+      y1 = 0
+
+  y2 += 50
+  if y2 > 1100:
+      y2 = 1100
+
+  for yMove in range(y1, y2+99, 100):
+    result += moveTo(x1, yMove)
+    result += moveTo(x2, yMove)
+    result += moveTo(x1, yMove)
+
+  for yMove in range(y2, y1, -100):
+    result += moveTo(x1, yMove)
+    result += moveTo(x2, yMove)
+    result += moveTo(x1, yMove)
+
+  result += moveTo(0, 0)
+
+  return result
