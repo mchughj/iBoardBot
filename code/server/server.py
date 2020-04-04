@@ -232,6 +232,9 @@ class MyHandler(BaseHTTPRequestHandler):
       self.sendText("|")
       urlEncodedArgs = urllib.parse.urlencode({CLIENT_ID:c})
       self.sendText("<a href=\"/clearQueue?{args}\">Clear Queue</a>".format(args=urlEncodedArgs))
+      self.sendText("|")
+      urlEncodedArgs = urllib.parse.urlencode({CLIENT_ID:c})
+      self.sendText("<a href=\"/erase?{args}\">Erase</a>".format(args=urlEncodedArgs))
       self.sendText("]")
       self.sendText("</td>")
       self.sendText("</tr>")
@@ -262,6 +265,10 @@ class MyHandler(BaseHTTPRequestHandler):
     c = self.clientManager.getClient(clientId)
     c.clearQueue()
 
+  def erase(self, clientId):
+    c = self.clientManager.getClient(clientId)
+    c.addNewDrawing(bbcs.eraseAll())
+
   def addMockData(self, clientId, size):
     c = self.clientManager.getClient(clientId)
     c.addNewDrawing(mockDrawData(size))
@@ -284,6 +291,10 @@ class MyHandler(BaseHTTPRequestHandler):
       clientId = self.args[CLIENT_ID][0]
       self.clearQueue(clientId)
       self.showMainMenu("Queue cleared!")
+    elif self.path == "/erase":
+      clientId = self.args[CLIENT_ID][0]
+      self.erase(clientId)
+      self.showMainMenu("Erased!")
     elif self.path == "/addMockData":
       clientId = self.args[CLIENT_ID][0]
       size = int(self.args["size"][0])

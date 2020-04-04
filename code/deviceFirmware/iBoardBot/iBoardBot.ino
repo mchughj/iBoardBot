@@ -264,16 +264,26 @@ void loop()
       timeout_counter++;
       wait_counter = 0;
       if ((timeout_counter > 8000) || ((myAbsLong(target_position_x - position_x) < POSITION_TOLERANCE_X) && (myAbsLong(target_position_y - position_y) < POSITION_TOLERANCE_Y))) { // Move done?
+#if DEBUG==3
+        Serial.print( F("made it; targetX: "));
+        Serial.print( target_position_x );
+        Serial.print( F(", position_x: "));
+        Serial.print( position_x );
+        Serial.print( F(", targetY: "));
+        Serial.print( target_position_y );
+        Serial.print( F(", position_y: "));
+        Serial.println( position_y );
+#endif
         if (timeout_counter > 8000) {
           Serial.print(F("!TimeoutCounter! ")); // 8 seconds timeout
           show_command = true;
           // Reset position on timeout?
         }
-#if DEBUG==2
+#if DEBUG==3
         if (show_command) {
-          Serial.print(" EP:");
+          Serial.print( F("show move - position; x: "));
           Serial.print(position_x);
-          Serial.print(":");
+          Serial.print( F(", y:"));
           Serial.println(position_y);
         }
 #endif
@@ -288,11 +298,12 @@ void loop()
 
 #ifdef DEBUG
           if (show_command) {
+            Serial.print( F("consuming command; commands_index: "));
             Serial.print(commands_index);
-            Serial.print(":");
+            Serial.print( F(", code1: "));
             Serial.print(code1);
-            Serial.print(",");
-            Serial.print(code2);
+            Serial.print( F(", code2: "));
+            Serial.println(code2);
             show_command = false;
           }
 #endif
@@ -311,12 +322,11 @@ void loop()
           else if (code1 == 4009) {
             new_packet = false;
             block_number = code2;
-            if (block_number >= 4000)
+            if (block_number >= 4000) {
               block_number = -1;
-            else {
-              Serial.print(F(" Start block:"));
-              Serial.println(block_number);
             }
+            Serial.print(F("Start block: "));
+            Serial.println(block_number);
             show_command = true;
             servo_counter = 0;
             if (timeout_recover) {   // Timeout recovery mode? This means we had a timeout
@@ -326,9 +336,9 @@ void loop()
               buffer[commands_index * 3+1]= ((4003 << 4) & 0xF0);
               buffer[commands_index * 3+2]= 0;
               timeout_recover = false;
-              }
-            else
+            } else {
               commands_index++;
+            }
           }
           else if ((code1 == 4001) && (code2 == 4001)) { // START DRAWING
             if (servo_counter == 0) {
@@ -500,13 +510,10 @@ void loop()
             last_move_x = code1;
             last_move_y = code2;
 #if DEBUG>0
-            Serial.print("   ");
+            Serial.print( F("target position; x: "));
             Serial.print(target_position_x);
-            Serial.print(",");
+            Serial.print(", y:");
             Serial.print(target_position_y);
-#endif
-
-#ifdef DEBUG
             Serial.println();
 #endif
             commands_index++;
@@ -528,12 +535,16 @@ void loop()
         }
       }
 
-#if DEBUG==2
+#if DEBUG==3
       if ((loop_counter % 50) == 0) {
-        Serial.print(position_x);
-        Serial.print(":");
-        Serial.print(position_y);
-        Serial.println();
+        Serial.print( F("Ongoing move; targetX: "));
+        Serial.print( target_position_x );
+        Serial.print( F(", position_x: "));
+        Serial.print( position_x );
+        Serial.print( F(", targetY: "));
+        Serial.print( target_position_y );
+        Serial.print( F(", position_y: "));
+        Serial.println( position_y );
       }
 #endif
     }  // draw task

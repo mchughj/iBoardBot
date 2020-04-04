@@ -43,3 +43,23 @@ def liftPen():
 
 def dropPen():
   return _formPacket(0xFA, 0x40, 0x00)  #   4004 0000   [FA3000]    # Pen down
+
+def eraserDown():
+  return _formPacket(4005, 0)
+
+def eraseAll():
+  result  = liftPen()
+  result += eraserDown()
+  for y in range(0, 1200, 100):
+    result += moveTo(0, y)
+    result += moveTo(3580, y)
+    result += moveTo(0, y)
+
+  for y in range(1100, 0, -100):
+    result += moveTo(0, y)
+    result += moveTo(3580, y)
+    result += moveTo(0, y)
+
+  result += moveTo(0, 0)
+
+  return result
