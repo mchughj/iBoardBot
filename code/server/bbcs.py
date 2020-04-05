@@ -12,10 +12,8 @@ def _formPacket(arg1, arg2, arg3=None):
       a1 = arg1 & 0xFF
       a2 = arg2 & 0xFF
       a3 = arg3 & 0xFF
-      logging.info("Three arguments; a1: %d, a2: %d, a3: %d", a1, a2, a3)
       return struct.pack("BBB", a1, a2, a3)
   else:
-      logging.info("Two arguments; arg1: %d, arg2: %d", arg1, arg2)
       full       = (arg1 << 12) + arg2
       msbByte    = (full >> 16 ) & 0xFF
       middleByte = (full >> 8 )  & 0xFF
@@ -24,6 +22,7 @@ def _formPacket(arg1, arg2, arg3=None):
 
 
 def moveTo(x, y):
+  logging.info("moveTo; x: %d, y: %d", x, y)
   return _formPacket(x, y)
 
 def blockIdentifier(blockNumber):

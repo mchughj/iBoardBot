@@ -10,6 +10,10 @@ import urllib.parse
 import threading
 
 import bbcs
+import freetype
+import text
+
+import cv2
 
 logging.basicConfig(level=logging.DEBUG, format='(%(threadName)-10s) %(message)s')
 
@@ -20,6 +24,20 @@ config = parser.parse_args()
 
 DEVICE_URL_PREFIX = "/ibb-device/"
 CLIENT_ID = "ID_IWBB"
+
+MAX_HEIGHT = 1100
+MAX_WIDTH = 3850
+
+
+def mockDrawImage(file = ""):
+  image = cv2.imread(file)
+  gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+  # gray = cv2.bilateralFilter(gray, 11, 17, 17)
+  # edged = cv2.Canny(gray, 30, 200)
+  # cnts = cv2.findContours(edged.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+  ret, thresh = cv2.threshold(gray,127,255,0)
+  image, contours = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
 
 def mockDrawData(size = 0):
   if size == 0:
@@ -42,9 +60,9 @@ def mockDrawData(size = 0):
   logging.info("mockData - done; size: %d, resultSize: %d", size, len(result))
   return result
 
+
 class NoWorkException(Exception):
   pass
-
 
 class Client(object):
 
@@ -141,7 +159,6 @@ class Client(object):
 
     entry = (self.nextBlockNumber, data)
     self.queue.append(entry)
-    logging.info("addNewBlock - final results; queue: %s", self.queue)
 
   def getNextBlock(self, timeoutSeconds):
     logging.info("getNextBlock - on enter;")
@@ -193,6 +210,32 @@ class MyHandler(BaseHTTPRequestHandler):
   def sendText(self, s):
     self.wfile.write(bytes(s,"utf-8"))
 
+  def showAddTextScreen(self, clientId):
+    logging.info("showAddTextScreen")
+
+    self.send_response(200)
+    self.send_header('Content-type', 'text/html')
+    self.end_headers()
+
+    self.sendText("<html>")
+    self.sendText("<head>")
+    self.sendText("</head>")
+
+    self.sendText("<h1>iBoardBoy Server</h1>")
+    self.sendText("Add text to be displayed")
+    self.sendText("<br><br>")
+    self.sendText("<form method=\"get\" action=\"addText\">")
+    self.sendText("Text: <input size=\"127\" type=\"text\" name=\"s\"></BR>")
+    self.sendText("ClientId: <input size=\"127\" type=\"text\" name=\"ID_IWBB\" value=\"{}\"></BR>".format(clientId))
+    self.sendText("Size: <input size=\"127\" type=\"text\" value=\"256\" name=\"size\"></BR>")
+    self.sendText("Font: <input size=\"127\" type=\"text\" value=\"fonts\\Exo2-Bold.otf\" name=\"f\"></BR>")
+    self.sendText("x: <input size=\"127\" type=\"text\" value=\"0\" name=\"x\"></BR>")
+    self.sendText("y: <input size=\"127\" type=\"text\" value=\"0\" name=\"y\"></BR>")
+    self.sendText("<input type=\"submit\" value=\"Submit\">")
+    self.sendText("</form>")
+    self.sendText("</html>")
+
+
   def showMainMenu(self, message = None):
     logging.info("showMainMenu")
     self.send_response(200)
@@ -208,12 +251,13 @@ class MyHandler(BaseHTTPRequestHandler):
     self.sendText("</style>")
     self.sendText("</head>")
     self.sendText("<h1>iBoardBot Server</h1>")
-    self.sendText("<br><br>")
+    self.sendText("<br>")
     if message:
-      self.sendText("<font color=\"red\">")
+      self.sendText("<font color=\"red\">(")
       self.sendText(message)
-      self.sendText("</font></hr></br>")
+      self.sendText("</font>)</hr></br>")
 
+    self.sendText("<br>")
     self.sendText("Clients<br>")
     self.sendText("<table style=\"width:100%\">")
     self.sendText("<tr><th>ID</th><th>Queue Size</th><th>Actions</th></tr>")
@@ -226,10 +270,13 @@ class MyHandler(BaseHTTPRequestHandler):
       self.sendText("</td><td>")
       urlEncodedArgs = urllib.parse.urlencode({CLIENT_ID:c, "size":0 })
       self.sendText("[")
-      self.sendText("<a href=\"/addMockData?{args}\">Dummy Packet</a>".format(args=urlEncodedArgs))
+      self.sendText("<a href=\"/addMockDrawing?{args}\">Drawing</a>".format(args=urlEncodedArgs))
       self.sendText("|")
       urlEncodedArgs = urllib.parse.urlencode({CLIENT_ID:c, "size":1 })
-      self.sendText("<a href=\"/addMockData?{args}\">Big Dummy Packet</a>".format(args=urlEncodedArgs))
+      self.sendText("<a href=\"/addMockDrawing?{args}\">Big Drawing</a>".format(args=urlEncodedArgs))
+      self.sendText("|")
+      urlEncodedArgs = urllib.parse.urlencode({CLIENT_ID:c})
+      self.sendText("<a href=\"/addText?{args}\">Text</a>".format(args=urlEncodedArgs))
       self.sendText("|")
       urlEncodedArgs = urllib.parse.urlencode({CLIENT_ID:c})
       self.sendText("<a href=\"/clearQueue?{args}\">Clear Queue</a>".format(args=urlEncodedArgs))
@@ -282,9 +329,26 @@ class MyHandler(BaseHTTPRequestHandler):
     c = self.clientManager.getClient(clientId)
     c.addNewDrawing(bbcs.erasePortion(x1,y1,x2,y2))
 
-  def addMockData(self, clientId, size):
+  def addMockDrawing(self, clientId, size):
     c = self.clientManager.getClient(clientId)
     c.addNewDrawing(mockDrawData(size))
+
+  def addText(self, clientId, s, x, y, fontFace, size):
+    c = self.clientManager.getClient(clientId)
+
+    t = text.Text()
+    t.setFontCharacteristics(fontFace, size)
+    t.setString(s)
+    t.gen()
+
+    (w, h) = t.getDimensions()
+
+    if y == 0:
+      y = int((MAX_HEIGHT - h) / 2)
+    if x == 0:
+      x = int((MAX_WIDTH - w) / 2)
+
+    c.addNewDrawing(t.getDrawString(x, y))
 
   def handleDeviceRequest(self):
     clientId = self.args[CLIENT_ID][0]
@@ -307,7 +371,7 @@ class MyHandler(BaseHTTPRequestHandler):
     elif self.path == "/erase":
       clientId = self.args[CLIENT_ID][0]
 
-      if self.args["x1"]:
+      if "x1" in self.args:
         x1 = int(self.args["x1"][0])
         x2 = int(self.args["x2"][0])
         y1 = int(self.args["y1"][0])
@@ -317,11 +381,27 @@ class MyHandler(BaseHTTPRequestHandler):
         self.erase(clientId)
 
       self.showMainMenu("Erased!")
-    elif self.path == "/addMockData":
+    elif self.path == "/addMockDrawing":
       clientId = self.args[CLIENT_ID][0]
       size = int(self.args["size"][0])
-      self.addMockData(clientId, size)
-      self.showMainMenu("Mock data added!")
+      self.addMockDrawing(clientId, size)
+      self.showMainMenu("Mock drawing added!")
+    elif self.path == "/addTextScreen":
+      clientId = self.args[CLIENT_ID][0]
+      self.showAddTextScreen(clientId)
+    elif self.path == "/addText":
+      clientId = self.args[CLIENT_ID][0]
+      if not "s" in self.args:
+        self.showAddTextScreen(clientId)
+      else:
+        size = int(self.args["size"][0])
+        f = self.args["f"][0]
+        s = self.args["s"][0]
+        x = int(self.args["x"][0])
+        y = int(self.args["y"][0])
+        self.addText(clientId, s, x, y, f, size)
+        self.showMainMenu("Text added!")
+
     elif self.path.startswith("/puttext?"):
       clientId = self.args[CLIENT_ID][0]
       text = self.args["TEXT"][0]
