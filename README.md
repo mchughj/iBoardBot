@@ -13,11 +13,11 @@ The build is a lot of fun and I would highly recommend getting one.
 The server code uses the [https://github.com/rougier/freetype-py](freetype-py) library in order to generate images
 for text. Please use
 
-'''
+```
 pip install freetype-py
-'''
+```
 
 to install.
 
 All fonts included here are available via the SIL Open Font license.  More can 
-be found at [https://www.fontsquirrel.com/fonts/list/popular](font squirrel).
+be found at [https://www.fontsquirrel.com/fonts/list/popular](FontSquirrel).
