@@ -1,11 +1,11 @@
 
-import bbcs
 import cv2
 import logging
 from constants import MAX_HEIGHT, MAX_WIDTH
 
 class Image(object):
-  def __init__(self):
+  def __init__(self, bbcs):
+    self.bbcs = bbcs
     self.filename = None
     self.scaleFactor = 0
     self.width = 0
@@ -51,7 +51,7 @@ class Image(object):
     logging.info("getDrawString - offset values; offsetX: %d, offsetY: %d", 
         offsetX, offsetY)
 
-    result  = bbcs.liftPen()
+    result  = self.bbcs.liftPen()
     for c in self.contours:
       area = cv2.contourArea(c)
       if area < 40:
@@ -64,20 +64,20 @@ class Image(object):
             area, len(c))
 
         start = c[0]
-        result += bbcs.liftPen()
+        result += self.bbcs.liftPen()
         logging.info("drawImage - lifting pen;")
-        result += bbcs.moveTo(int(start[0][0] * self.scaleFactor) + offsetX,
+        result += self.bbcs.moveTo(int(start[0][0] * self.scaleFactor) + offsetX,
             offsetY - int(start[0][1] * self.scaleFactor))
-        result += bbcs.dropPen()
+        result += self.bbcs.dropPen()
         logging.info("drawImage - dropping pen;")
         for e in c[1:]:
-          result += bbcs.moveTo(int(e[0][0] * self.scaleFactor) + offsetX,
+          result += self.bbcs.moveTo(int(e[0][0] * self.scaleFactor) + offsetX,
               offsetY - int(e[0][1] * self.scaleFactor))
         logging.info("drawImage - lifting pen;")
-        result += bbcs.liftPen()
+        result += self.bbcs.liftPen()
 
       else:
         logging.info("drawImage - skipping singletons; len: %d", len(c))
 
-    result += bbcs.liftPen()
+    result += self.bbcs.liftPen()
     return result

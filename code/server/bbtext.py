@@ -1,9 +1,9 @@
 import freetype
-import bbcs
 import logging
 
 class Text(object):
-  def __init__(self):
+  def __init__(self, bbcs):
+    self.bbcs = bbcs
     self.text = ""
     self.points = []
     self.contours = []
@@ -61,8 +61,8 @@ class Text(object):
     return (self.width, self.height)
 
   def getDrawString(self, lowerLeftX, lowerLeftY):
-    result  = bbcs.liftPen()
-    result += bbcs.moveTo(lowerLeftX, lowerLeftY)
+    result  = self.bbcs.liftPen()
+    result += self.bbcs.moveTo(lowerLeftX, lowerLeftY)
 
     for i in range(len(self.string)):
       (characterCommands, lowerLeftX, lowerLeftY) = self._getDrawCharacter(
@@ -74,21 +74,21 @@ class Text(object):
 
   def _getDrawCharacter(self, points, contours, dimensions, lowerLeftX, lowerLeftY):
     start = 0
-    result = bbcs.moveTo(lowerLeftX, lowerLeftY)
+    result = self.bbcs.moveTo(lowerLeftX, lowerLeftY)
 
     for c in contours:
       end = c
       p = points[start:end+1]
       p.append(points[start])
-      result += bbcs.moveTo(
+      result += self.bbcs.moveTo(
           lowerLeftX + points[start][0], lowerLeftY +
           points[start][1])
-      result += bbcs.dropPen()
+      result += self.bbcs.dropPen()
       for individualPoint in p[1:]:
-        result += bbcs.moveTo(
+        result += self.bbcs.moveTo(
             lowerLeftX + individualPoint[0], 
             lowerLeftY + individualPoint[1])
-      result += bbcs.liftPen()
+      result += self.bbcs.liftPen()
       start = end + 1
 
     newLowerLeftX = lowerLeftX + dimensions[0] + self.sizeBetweenCharacters

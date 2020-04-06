@@ -21,11 +21,18 @@ logging.basicConfig(level=logging.DEBUG, format='(%(threadName)-10s) %(message)s
 parser = argparse.ArgumentParser(description='Server for iBoardBot')
 parser.add_argument('--port', type=int, help='Port to listen on', default=8080)
 parser.add_argument('--data', type=str, help='Location to save persistent data', default='./data')
+parser.add_argument('--mockScreen', default=False, action = "store_true", help='Use a fake board')
 config = parser.parse_args()
+
+if config.mockScreen:
+  from screen_bbcs import Bbcs
+else:
+  from bbcs import Bbcs
+
+bbcs = Bbcs()
 
 DEVICE_URL_PREFIX = "/ibb-device/"
 CLIENT_ID = "ID_IWBB"
-
 
 def mockDrawData(size = 0):
   if size == 0:
@@ -350,7 +357,7 @@ class MyHandler(BaseHTTPRequestHandler):
   def addImage(self, clientId, filename, scaleFactor, x, y):
     c = self.clientManager.getClient(clientId)
 
-    i = bbimage.Image()
+    i = bbimage.Image(bbcs)
     i.setImageCharacteristics(scaleFactor)
     i.setFilename(filename)
     i.gen()
@@ -370,7 +377,7 @@ class MyHandler(BaseHTTPRequestHandler):
   def addText(self, clientId, s, x, y, fontFace, size):
     c = self.clientManager.getClient(clientId)
 
-    t = bbtext.Text()
+    t = bbtext.Text(bbcs)
     t.setFontCharacteristics(fontFace, size)
     t.setString(s)
     t.gen()
