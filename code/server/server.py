@@ -10,10 +10,11 @@ import urllib.parse
 import threading
 
 import bbcs
+import bbimage
 import freetype
-import text
+import bbtext
 
-import cv2
+from constants import MAX_HEIGHT, MAX_WIDTH
 
 logging.basicConfig(level=logging.DEBUG, format='(%(threadName)-10s) %(message)s')
 
@@ -24,19 +25,6 @@ config = parser.parse_args()
 
 DEVICE_URL_PREFIX = "/ibb-device/"
 CLIENT_ID = "ID_IWBB"
-
-MAX_HEIGHT = 1100
-MAX_WIDTH = 3850
-
-
-def mockDrawImage(file = ""):
-  image = cv2.imread(file)
-  gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-  # gray = cv2.bilateralFilter(gray, 11, 17, 17)
-  # edged = cv2.Canny(gray, 30, 200)
-  # cnts = cv2.findContours(edged.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-  ret, thresh = cv2.threshold(gray,127,255,0)
-  image, contours = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
 
 def mockDrawData(size = 0):
@@ -52,9 +40,9 @@ def mockDrawData(size = 0):
     result += bbcs.moveTo(0,0)
     for x in range(size * 2):
       for y in range(size * 5):
-        result += bbcs.moveTo(1000 + (x*100), 1000 - (y*25))   #  - Move - 
+        result += bbcs.moveTo(1000 + (x*100), 1000 - (y*25)) 
         result += bbcs.dropPen() 
-        result += bbcs.moveTo(1050 + (x*100), 1000 - (y*25))   #  - Move - 
+        result += bbcs.moveTo(1050 + (x*100), 1000 - (y*25))
         result += bbcs.liftPen() 
 
   logging.info("mockData - done; size: %d, resultSize: %d", size, len(result))
@@ -144,7 +132,6 @@ class Client(object):
   def _addFooterToData(self, payload):
     result  = payload 
     result += bbcs.moveTo(0,0)
-    result += bbcs.eraserDown()
     result += bbcs.stopDrawing()
     return result
 
@@ -235,6 +222,30 @@ class MyHandler(BaseHTTPRequestHandler):
     self.sendText("</form>")
     self.sendText("</html>")
 
+  def showAddImageScreen(self, clientId):
+    logging.info("showAddImageScreen")
+
+    self.send_response(200)
+    self.send_header('Content-type', 'text/html')
+    self.end_headers()
+
+    self.sendText("<html>")
+    self.sendText("<head>")
+    self.sendText("</head>")
+
+    self.sendText("<h1>iBoardBoy Server</h1>")
+    self.sendText("Add image to be displayed")
+    self.sendText("<br><br>")
+    self.sendText("<form method=\"get\" action=\"addImage\">")
+    self.sendText("ClientId: <input size=\"127\" type=\"text\" name=\"ID_IWBB\" value=\"{}\"></BR>".format(clientId))
+    self.sendText("Image Filename: <input size=\"127\" type=\"text\" name=\"filename\"></BR>")
+    self.sendText("Scaling Factor: <input size=\"127\" type=\"text\" value=\"0\" name=\"scaleFactor\"></BR>")
+    self.sendText("x: <input size=\"127\" type=\"text\" value=\"0\" name=\"x\"></BR>")
+    self.sendText("y: <input size=\"127\" type=\"text\" value=\"0\" name=\"y\"></BR>")
+    self.sendText("<input type=\"submit\" value=\"Submit\">")
+    self.sendText("</form>")
+    self.sendText("</html>")
+
 
   def showMainMenu(self, message = None):
     logging.info("showMainMenu")
@@ -274,6 +285,9 @@ class MyHandler(BaseHTTPRequestHandler):
       self.sendText("|")
       urlEncodedArgs = urllib.parse.urlencode({CLIENT_ID:c, "size":1 })
       self.sendText("<a href=\"/addMockDrawing?{args}\">Big Drawing</a>".format(args=urlEncodedArgs))
+      self.sendText("|")
+      urlEncodedArgs = urllib.parse.urlencode({CLIENT_ID:c})
+      self.sendText("<a href=\"/addImage?{args}\">Image</a>".format(args=urlEncodedArgs))
       self.sendText("|")
       urlEncodedArgs = urllib.parse.urlencode({CLIENT_ID:c})
       self.sendText("<a href=\"/addText?{args}\">Text</a>".format(args=urlEncodedArgs))
@@ -333,10 +347,30 @@ class MyHandler(BaseHTTPRequestHandler):
     c = self.clientManager.getClient(clientId)
     c.addNewDrawing(mockDrawData(size))
 
+  def addImage(self, clientId, filename, scaleFactor, x, y):
+    c = self.clientManager.getClient(clientId)
+
+    i = bbimage.Image()
+    i.setImageCharacteristics(scaleFactor)
+    i.setFilename(filename)
+    i.gen()
+
+    (w, h) = i.getDimensions()
+
+    if y == 0:
+      y = MAX_HEIGHT - int((MAX_HEIGHT - h)/2)
+    if x == 0:
+      x = int((MAX_WIDTH - w) / 2)
+
+    logging.debug("addImage - going get drawing string; w: %d, h: %d, x: %d, y: %d", 
+        w, h, x, y)
+
+    c.addNewDrawing(i.getDrawString(x, y))
+
   def addText(self, clientId, s, x, y, fontFace, size):
     c = self.clientManager.getClient(clientId)
 
-    t = text.Text()
+    t = bbtext.Text()
     t.setFontCharacteristics(fontFace, size)
     t.setString(s)
     t.gen()
@@ -386,6 +420,24 @@ class MyHandler(BaseHTTPRequestHandler):
       size = int(self.args["size"][0])
       self.addMockDrawing(clientId, size)
       self.showMainMenu("Mock drawing added!")
+
+    elif self.path == "/addImageScreen":
+      clientId = self.args[CLIENT_ID][0]
+      self.showAddImageScreen(clientId)
+
+    elif self.path == "/addImage":
+      clientId = self.args[CLIENT_ID][0]
+
+      if not "filename" in self.args:
+        self.showAddImageScreen(clientId)
+      else:
+        scaleFactor = float(self.args["scaleFactor"][0])
+        filename = self.args["filename"][0]
+        x = int(self.args["x"][0])
+        y = int(self.args["y"][0])
+        self.addImage(clientId, filename, scaleFactor, x, y)
+        self.showMainMenu("Image added!")
+
     elif self.path == "/addTextScreen":
       clientId = self.args[CLIENT_ID][0]
       self.showAddTextScreen(clientId)

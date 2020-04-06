@@ -2,6 +2,8 @@
 import logging
 import struct
 
+from constants import MAX_HEIGHT, MAX_WIDTH
+
 # bbcs = board bot command set
 
 # This module implements functionality that encapsulates how to 
@@ -23,6 +25,14 @@ def _formPacket(arg1, arg2, arg3=None):
 
 def moveTo(x, y):
   logging.info("moveTo; x: %d, y: %d", x, y)
+  if y<0:
+      y = 0
+  if x<0:
+      x = 0
+  if y>=MAX_HEIGHT:
+      y = MAX_HEIGHT-1
+  if x>=MAX_WIDTH:
+      x = MAX_WIDTH-1
   return _formPacket(x, y)
 
 def blockIdentifier(blockNumber):
@@ -54,7 +64,7 @@ def eraseAll():
     result += moveTo(3580, y)
     result += moveTo(0, y)
 
-  for y in range(1100, 0, -100):
+  for y in range(1050, 0, -100):
     result += moveTo(0, y)
     result += moveTo(3580, y)
     result += moveTo(0, y)
