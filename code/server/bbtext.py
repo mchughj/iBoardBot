@@ -10,6 +10,7 @@ class Text(object):
     self.dimensions = []
     self.width = 0
     self.height = 0
+    self.isBoxed = False
 
   def setFontCharacteristics(self, font, size):
     self.size = size
@@ -17,6 +18,9 @@ class Text(object):
     self.spaceSize = self.sizeBetweenCharacters * 2
     self.face = freetype.Face(font)
     self.face.set_char_size(size)
+
+  def setBoxed(self, isBoxed):
+    self.isBoxed = isBoxed
 
   def setString(self, string):
     self.string = string
@@ -60,8 +64,43 @@ class Text(object):
   def getDimensions(self):
     return (self.width, self.height)
 
-  def getDrawString(self, lowerLeftX, lowerLeftY):
-    result  = self.bbcs.liftPen()
+  def getTextLowerLeftX(self):
+    return self.textStartLowerLeftX
+
+  def getTextLowerLeftY(self):
+    return self.textStartLowerLeftY
+
+  def getDrawString(self, dimensions):
+
+    if len(dimensions) == 2:
+      lowerLeftX, lowerLeftY = dimensions
+      result  = self.bbcs.liftPen()
+    elif len(dimensions) == 4:
+      # Assumption here is that the text should be centered
+      # relative to the lowerLeftX, lowerLeftY and width and 
+      # height passed in
+      lowerLeftX, lowerLeftY, width, height = dimensions
+      result = self.bbcs.liftPen()
+      if self.isBoxed:
+        result += self.bbcs.moveTo(lowerLeftX, lowerLeftY)
+        result += self.bbcs.dropPen()
+        result += self.bbcs.moveTo(lowerLeftX+width, lowerLeftY)
+        result += self.bbcs.moveTo(lowerLeftX+width, lowerLeftY+height)
+        result += self.bbcs.moveTo(lowerLeftX, lowerLeftY+height)
+        result += self.bbcs.moveTo(lowerLeftX, lowerLeftY)
+        result += self.bbcs.liftPen()
+
+      lowerLeftX += int((width - self.width) / 2)
+      lowerLeftY += int((height - self.height) / 2)
+
+      logging.info("getDrawString - got new lower left;  self.width: %d, "
+              "self.height: %d, width: %d, height: %d, lowerLeftX: %d, "
+              "lowerLeftY: %d", self.width, self.height, width, height,
+              lowerLeftX, lowerLeftY)
+
+    self.textStartLowerLeftX = lowerLeftX
+    self.textStartLowerLeftY = lowerLeftY 
+
     result += self.bbcs.moveTo(lowerLeftX, lowerLeftY)
 
     for i in range(len(self.string)):

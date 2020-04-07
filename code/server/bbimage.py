@@ -6,28 +6,31 @@ from constants import MAX_HEIGHT, MAX_WIDTH
 class Image(object):
   def __init__(self, bbcs):
     self.bbcs = bbcs
-    self.filename = None
-    self.scaleFactor = 0
+    self.scaleFactor = 1
     self.width = 0
     self.height = 0
 
   def setImageCharacteristics(self, scaleFactor):
     self.scaleFactor = scaleFactor
 
-  def setFilename(self, filename):
-    self.filename = filename
-
   def getDimensions(self):
     return (self.width * self.scaleFactor, self.height * self.scaleFactor)
 
-  def gen(self):
-    logging.info("gen - loading file; filename: %s", self.filename)
-    image = cv2.imread(self.filename)
+  def genFromFile(self, filename):
+    logging.info("genFromFile - loading file; filename: %s", filename)
+    image = cv2.imread(filename)
 
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     gray = cv2.bilateralFilter(gray, 11, 17, 17)
     edged = cv2.Canny(gray, 30, 200)
-    contours, _ = cv2.findContours(edged, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+    self.genContours(edged)
+
+  def genFromImage(self, image):
+    self.genContours(image)
+
+  def genContours(self, image):
+    contours, _ = cv2.findContours(image, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
     # ret, thresh = cv2.threshold(gray,100,255,0)
     
@@ -46,19 +49,19 @@ class Image(object):
       yFactor = MAX_HEIGHT / self.height
       self.scaleFactor = min(xFactor, yFactor)
 
+    logging.info("genContours - done; minX: %d, maxX: %d, minY: %d, maxY: %d, "
+        "width: %d, height: %d, numberContours: %d", 
+        self.minX, self.maxX, self.minY, self.maxY, self.width, self.height,
+        len(self.contours))
+
 
   def getDrawString(self, offsetX, offsetY):
     logging.info("getDrawString - offset values; offsetX: %d, offsetY: %d", 
         offsetX, offsetY)
 
-    result  = self.bbcs.liftPen()
+    result = self.bbcs.liftPen()
     for c in self.contours:
       area = cv2.contourArea(c)
-      if area < 40:
-        logging.info("getDrawString - skipping small one; area: %d, len: %d", 
-            area, len(c))
-        continue
-
       if len(c) >= 2:
         logging.info("getDrawString - drawing contour; area: %d, len: %d", 
             area, len(c))

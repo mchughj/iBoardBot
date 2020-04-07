@@ -11,6 +11,8 @@ import threading
 
 import bbcs
 import bbimage
+import bbinversetextbox
+import bbshape
 import freetype
 import bbtext
 
@@ -351,16 +353,15 @@ class MyHandler(BaseHTTPRequestHandler):
     c.addNewDrawing(bbcs.erasePortion(x1,y1,x2,y2))
 
   def addMockDrawing(self, clientId, size):
-    c = self.clientManager.getClient(clientId)
+    c = self.clientManager.getOrMakeClient(clientId)
     c.addNewDrawing(mockDrawData(size))
 
   def addImage(self, clientId, filename, scaleFactor, x, y):
-    c = self.clientManager.getClient(clientId)
+    c = self.clientManager.getOrMakeClient(clientId)
 
     i = bbimage.Image(bbcs)
     i.setImageCharacteristics(scaleFactor)
-    i.setFilename(filename)
-    i.gen()
+    i.genFromFile(filename)
 
     (w, h) = i.getDimensions()
 
@@ -374,8 +375,101 @@ class MyHandler(BaseHTTPRequestHandler):
 
     c.addNewDrawing(i.getDrawString(x, y))
 
+  def addDate(self, clientId):
+    c = self.clientManager.getOrMakeClient(clientId)
+
+    if 1:
+      y = 800
+      x = 250
+      width = 700
+      height = 250
+      t = bbtext.Text(bbcs)
+      t.setFontCharacteristics("fonts\\Exo2-Bold.otf", 256)
+      t.setString("TUE")
+      t.gen()
+      c.addNewDrawing(t.getDrawString((x, y, width, height)))
+
+      # Generate date component of the display
+      width = 700
+      height = 500
+      y = 140 + height
+      x = 275
+      
+      t = bbinversetextbox.InverseTextBox(bbcs, width, height)
+      t.setRoundedRectangle(True)
+      t.setString("07")
+      t.gen()
+      c.addNewDrawing(t.getDrawString(x, y))
+
+    # t = bbtext.Text(bbcs)
+    # t.setFontCharacteristics("fonts\\ChunkFive-Regular.otf", 375)
+    # t.setString("04")
+    # t.setBoxed(True)
+    # t.gen()
+    # c.addNewDrawing(t.getDrawString((x, y, width, height)))
+
+    # Seperator for the date from the weather
+    l = bbshape.VLine(bbcs)
+    l.setHeight(900)
+    l.gen()
+    s = l.getDrawString(1150, 100)
+
+    rhsX = 1400
+    rhsFullWidth = 2000
+
+    width = rhsFullWidth
+    height = 250
+    x = rhsX
+    y = 650
+    t = bbtext.Text(bbcs)
+    t.setFontCharacteristics("fonts\\OpenSans-Bold.ttf", 320)
+    t.setString("11:43 - 50")
+    t.gen()
+    s += t.getDrawString((x, y, width, height))
+
+    logging.info("addDate - going to draw the circle; t.getDimensions: %s",
+        t.getDimensions())
+
+    circle = bbshape.Circle(bbcs)
+    circle.setRadius(20)
+    circle.gen()
+    s += circle.getDrawString(
+        t.getTextLowerLeftX() + t.getDimensions()[0], 
+        t.getTextLowerLeftY() + t.getDimensions()[1] + 20)
+
+    if 1:
+      
+      width = rhsFullWidth
+      height = 200
+      x = rhsX
+      y = 350
+      t = bbtext.Text(bbcs)
+      t.setFontCharacteristics("fonts\\Exo2-Bold.otf", 128)
+      t.setString("39 / 55")
+      t.setBoxed(False)
+      t.gen()
+      s += t.getDrawString((x, y, width, height))
+
+      width = rhsFullWidth
+      height = 200
+      x = rhsX
+      y = 50
+      t = bbtext.Text(bbcs)
+      t.setFontCharacteristics("fonts\\Exo2-Bold.otf", 128)
+      t.setString("Sunny")
+      t.setBoxed(True)
+      t.gen()
+      s += t.getDrawString((x, y, width, height))
+
+    c.addNewDrawing(s)
+
+
+    self.send_response(200)
+    self.send_header('Content-type', 'text/html')
+    self.end_headers()
+
   def addText(self, clientId, s, x, y, fontFace, size):
-    c = self.clientManager.getClient(clientId)
+    c = self.clientManager.getOrMakeClient(clientId)
 
     t = bbtext.Text(bbcs)
     t.setFontCharacteristics(fontFace, size)
@@ -389,7 +483,7 @@ class MyHandler(BaseHTTPRequestHandler):
     if x == 0:
       x = int((MAX_WIDTH - w) / 2)
 
-    c.addNewDrawing(t.getDrawString(x, y))
+    c.addNewDrawing(t.getDrawString((x, y)))
 
   def handleDeviceRequest(self):
     clientId = self.args[CLIENT_ID][0]
@@ -460,6 +554,10 @@ class MyHandler(BaseHTTPRequestHandler):
         y = int(self.args["y"][0])
         self.addText(clientId, s, x, y, f, size)
         self.showMainMenu("Text added!")
+
+    elif self.path == "/date":
+      clientId = self.args[CLIENT_ID][0]
+      self.addDate(clientId)
 
     elif self.path.startswith("/puttext?"):
       clientId = self.args[CLIENT_ID][0]

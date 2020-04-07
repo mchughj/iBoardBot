@@ -16,9 +16,12 @@ class Bbcs(object):
     self.currentLocation = (0,0)
     self.screenNumber = 0
     self.mat = None
-    self.scaleFactor = 0.5
+    self.scaleFactor = 0.33
     self.width = int(MAX_WIDTH*self.scaleFactor)
     self.height = int(MAX_HEIGHT*self.scaleFactor)
+    logging.info("__init__ setting up screen area; scaleFactor: %f, "
+        "MAX_WIDTH: %d, MAX_HEIGHT: %d, self.width: %d, self.height: %d",
+        self.scaleFactor, MAX_WIDTH, MAX_HEIGHT, self.width, self.height)
     self.mat = np.zeros((
       self.height,
       self.width,
@@ -28,7 +31,12 @@ class Bbcs(object):
     y = MAX_HEIGHT - y
     newLocation = (int(self.scaleFactor * x), int(self.scaleFactor * y))
     if self.penIsDown:
-      cv2.line(self.mat, self.currentLocation, newLocation, (255,0,0), 1)
+      if 0:
+        logging.info("moveTo - drawing line; from: %s, to: %s", self.currentLocation, newLocation)
+      cv2.line(self.mat, self.currentLocation, newLocation, (255,0,0), 1, 4)
+    else:
+      if 0: 
+        logging.info("moveTo - just relocating; newLocation: %s", newLocation)
 
     self.currentLocation = newLocation
     return ""
@@ -43,9 +51,9 @@ class Bbcs(object):
     return ""
 
   def stopDrawing(self):
-    logging.info("stopDrawing - going to show the screen;")
     cv2.imshow(str(self.screenNumber),self.mat)
-    cv2.waitKey(1)
+    cv2.waitKey(0)
+    cv2.destroyWindow(str(self.screenNumber))
     return ""
 
   def liftPen(self):
