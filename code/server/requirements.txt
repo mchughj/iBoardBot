@@ -1,0 +1,3 @@
+opencv2
+numpy
+freetype-py

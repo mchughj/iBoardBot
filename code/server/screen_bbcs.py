@@ -17,8 +17,8 @@ class Bbcs(object):
     self.screenNumber = 0
     self.mat = None
     self.scaleFactor = 0.33
-    self.width = int(MAX_WIDTH*self.scaleFactor)
-    self.height = int(MAX_HEIGHT*self.scaleFactor)
+    self.width = self._scale(MAX_WIDTH)
+    self.height = self._scale(MAX_HEIGHT)
     logging.info("__init__ setting up screen area; scaleFactor: %f, "
         "MAX_WIDTH: %d, MAX_HEIGHT: %d, self.width: %d, self.height: %d",
         self.scaleFactor, MAX_WIDTH, MAX_HEIGHT, self.width, self.height)
@@ -29,7 +29,7 @@ class Bbcs(object):
 
   def moveTo(self, x, y):
     y = MAX_HEIGHT - y
-    newLocation = (int(self.scaleFactor * x), int(self.scaleFactor * y))
+    newLocation = (self._scale(x), self._scale(y))
     if self.penIsDown:
       if 0:
         logging.info("moveTo - drawing line; from: %s, to: %s", self.currentLocation, newLocation)
@@ -75,5 +75,20 @@ class Bbcs(object):
       self.width, 3), np.uint8)
     return ""
 
+  def _scale(self, value):
+    return int(value * self.scaleFactor)
+
   def erasePortion(self, x1,y1,x2,y2):
+    logging.info("erasePortion; x1: %d, y1: %d, x2: %d, y2: %d", x1,y1,x2,y2)
+    x1 = self._scale(x1)
+    x2 = self._scale(x2)
+    y1 = self._scale(MAX_HEIGHT-y1)
+    y2 = self._scale(MAX_HEIGHT-y2)
+    logging.info("erasePortion - scaled values; x1: %d, y1: %d, x2: %d, y2: %d", x1,y1,x2,y2)
+
+    cv2.rectangle(
+        self.mat, 
+        (x1,y1), 
+        (x2,y2),
+        (0,0,0), -1)
     return ""

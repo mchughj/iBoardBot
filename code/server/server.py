@@ -440,27 +440,27 @@ class MyHandler(BaseHTTPRequestHandler):
 
     if 1:
       
-      width = rhsFullWidth
+      width = rhsFullWidth - 1500
       height = 225
-      x = rhsX
-      y = 325
+      x = rhsX + 1500
+      y = 350
       t = bbtext.Text(bbcs)
       t.setFontCharacteristics("fonts\\Exo2-Bold.otf", 150)
       t.setString(minTemperature + " / " + maxTemperature)
       t.setBoxed(False)
       t.gen()
-      s += t.getDrawString((x, y, width, height))
+      s += t.getDrawString((x, y))
 
-      width = rhsFullWidth - 1000
+      width = rhsFullWidth - 1500
       height = 275
-      x = rhsX + 1000
-      y = 10
+      x = rhsX + 1500
+      y = 90
       t = bbtext.Text(bbcs)
       t.setFontCharacteristics("fonts\\Exo2-Bold.otf", 164)
       t.setString(description)
       t.setBoxed(False)
       t.gen()
-      s += t.getDrawString((x, y, width, height))
+      s += t.getDrawString((x, y))
 
     c.addNewDrawing(s)
 
@@ -597,7 +597,6 @@ class MyHandler(BaseHTTPRequestHandler):
       time = self.args["time"][0]
       temperature = self.args["temperature"][0]
       self.updateWeather(clientId, time, temperature)
-
 
     elif self.path.startswith("/puttext?"):
       clientId = self.args[CLIENT_ID][0]
