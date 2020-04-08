@@ -375,7 +375,7 @@ class MyHandler(BaseHTTPRequestHandler):
 
     c.addNewDrawing(i.getDrawString(x, y))
 
-  def addDate(self, clientId):
+  def addWeather(self, clientId, dayOfWeek, dayOfMonth, time, temperature, minTemperature, maxTemperature, description):
     c = self.clientManager.getOrMakeClient(clientId)
 
     if 1:
@@ -385,7 +385,7 @@ class MyHandler(BaseHTTPRequestHandler):
       height = 250
       t = bbtext.Text(bbcs)
       t.setFontCharacteristics("fonts\\Exo2-Bold.otf", 256)
-      t.setString("TUE")
+      t.setString(dayOfWeek)
       t.gen()
       c.addNewDrawing(t.getDrawString((x, y, width, height)))
 
@@ -397,7 +397,7 @@ class MyHandler(BaseHTTPRequestHandler):
       
       t = bbinversetextbox.InverseTextBox(bbcs, width, height)
       t.setRoundedRectangle(True)
-      t.setString("07")
+      t.setString(dayOfMonth)
       t.gen()
       c.addNewDrawing(t.getDrawString(x, y))
 
@@ -418,16 +418,17 @@ class MyHandler(BaseHTTPRequestHandler):
     rhsFullWidth = 2000
 
     width = rhsFullWidth
-    height = 250
+    height = 300
     x = rhsX
-    y = 650
+    y = 625
     t = bbtext.Text(bbcs)
+    t.setBoxed(True)
     t.setFontCharacteristics("fonts\\OpenSans-Bold.ttf", 320)
-    t.setString("11:43 - 50")
+    t.setString(time + " - " + temperature)
     t.gen()
     s += t.getDrawString((x, y, width, height))
 
-    logging.info("addDate - going to draw the circle; t.getDimensions: %s",
+    logging.info("addWeather - going to draw the circle; t.getDimensions: %s",
         t.getDimensions())
 
     circle = bbshape.Circle(bbcs)
@@ -440,29 +441,54 @@ class MyHandler(BaseHTTPRequestHandler):
     if 1:
       
       width = rhsFullWidth
-      height = 200
+      height = 225
       x = rhsX
-      y = 350
+      y = 325
       t = bbtext.Text(bbcs)
-      t.setFontCharacteristics("fonts\\Exo2-Bold.otf", 128)
-      t.setString("39 / 55")
+      t.setFontCharacteristics("fonts\\Exo2-Bold.otf", 150)
+      t.setString(minTemperature + " / " + maxTemperature)
       t.setBoxed(False)
       t.gen()
       s += t.getDrawString((x, y, width, height))
 
-      width = rhsFullWidth
-      height = 200
-      x = rhsX
-      y = 50
+      width = rhsFullWidth - 1000
+      height = 275
+      x = rhsX + 1000
+      y = 10
       t = bbtext.Text(bbcs)
-      t.setFontCharacteristics("fonts\\Exo2-Bold.otf", 128)
-      t.setString("Sunny")
-      t.setBoxed(True)
+      t.setFontCharacteristics("fonts\\Exo2-Bold.otf", 164)
+      t.setString(description)
+      t.setBoxed(False)
       t.gen()
       s += t.getDrawString((x, y, width, height))
 
     c.addNewDrawing(s)
 
+
+    self.send_response(200)
+    self.send_header('Content-type', 'text/html')
+    self.end_headers()
+
+  def updateWeather(self, clientId, time, temperature):
+    c = self.clientManager.getOrMakeClient(clientId)
+
+    rhsX = 1400
+    rhsFullWidth = 2000
+
+    width = rhsFullWidth
+    height = 300
+    x = rhsX
+    y = 625
+
+    s = bbcs.erasePortion(x, y, x+width, y+height)
+
+    t = bbtext.Text(bbcs)
+    t.setBoxed(True)
+    t.setFontCharacteristics("fonts\\OpenSans-Bold.ttf", 320)
+    t.setString(time + " - " + temperature)
+    t.gen()
+    s += t.getDrawString((x, y, width, height))
+    c.addNewDrawing(s)
 
     self.send_response(200)
     self.send_header('Content-type', 'text/html')
@@ -555,9 +581,23 @@ class MyHandler(BaseHTTPRequestHandler):
         self.addText(clientId, s, x, y, f, size)
         self.showMainMenu("Text added!")
 
-    elif self.path == "/date":
+    elif self.path == "/weather":
       clientId = self.args[CLIENT_ID][0]
-      self.addDate(clientId)
+      dayOfWeek = self.args["dayOfWeek"][0]
+      dayOfMonth = self.args["dayOfMonth"][0]
+      time = self.args["time"][0]
+      temperature = self.args["temperature"][0]
+      minTemperature = self.args["minTemperature"][0]
+      maxTemperature = self.args["maxTemperature"][0]
+      description = self.args["description"][0]
+      self.addWeather(clientId, dayOfWeek, dayOfMonth, time, temperature, minTemperature, maxTemperature, description)
+
+    elif self.path == "/updateWeather":
+      clientId = self.args[CLIENT_ID][0]
+      time = self.args["time"][0]
+      temperature = self.args["temperature"][0]
+      self.updateWeather(clientId, time, temperature)
+
 
     elif self.path.startswith("/puttext?"):
       clientId = self.args[CLIENT_ID][0]
