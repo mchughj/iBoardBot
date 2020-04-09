@@ -21,8 +21,7 @@ from constants import MAX_HEIGHT, MAX_WIDTH
 logging.basicConfig(level=logging.DEBUG, format='(%(threadName)-10s) %(message)s')
 
 parser = argparse.ArgumentParser(description='Server for iBoardBot')
-parser.add_argument('--port', type=int, help='Port to listen on', default=8080)
-parser.add_argument('--data', type=str, help='Location to save persistent data', default='./data')
+parser.add_argument('--port', type=int, help='Port to listen on', default=80)
 parser.add_argument('--mockScreen', default=False, action = "store_true", help='Use a fake board')
 config = parser.parse_args()
 
@@ -375,38 +374,31 @@ class MyHandler(BaseHTTPRequestHandler):
 
     c.addNewDrawing(i.getDrawString(x, y))
 
-  def addWeather(self, clientId, dayOfWeek, dayOfMonth, time, temperature, minTemperature, maxTemperature, description):
+  def addWeather(self, clientId, dayOfWeek, dayOfMonth, time, temperature,
+      minTemperature, maxTemperature, description, conditionString):
     c = self.clientManager.getOrMakeClient(clientId)
 
-    if 1:
-      y = 800
-      x = 250
-      width = 700
-      height = 250
-      t = bbtext.Text(bbcs)
-      t.setFontCharacteristics("fonts\\Exo2-Bold.otf", 256)
-      t.setString(dayOfWeek)
-      t.gen()
-      c.addNewDrawing(t.getDrawString((x, y, width, height)))
+    y = 800
+    x = 250
+    width = 700
+    height = 250
+    t = bbtext.Text(bbcs)
+    t.setFontCharacteristics("fonts\\Exo2-Bold.otf", 256)
+    t.setString(dayOfWeek)
+    t.gen()
+    c.addNewDrawing(t.getDrawString((x, y, width, height)))
 
-      # Generate date component of the display
-      width = 700
-      height = 500
-      y = 140 + height
-      x = 275
-      
-      t = bbinversetextbox.InverseTextBox(bbcs, width, height)
-      t.setRoundedRectangle(True)
-      t.setString(dayOfMonth)
-      t.gen()
-      c.addNewDrawing(t.getDrawString(x, y))
-
-    # t = bbtext.Text(bbcs)
-    # t.setFontCharacteristics("fonts\\ChunkFive-Regular.otf", 375)
-    # t.setString("04")
-    # t.setBoxed(True)
-    # t.gen()
-    # c.addNewDrawing(t.getDrawString((x, y, width, height)))
+    # Generate date component of the display
+    width = 700
+    height = 500
+    y = 140 + height
+    x = 275
+    
+    t = bbinversetextbox.InverseTextBox(bbcs, width, height)
+    t.setRoundedRectangle(True)
+    t.setString(dayOfMonth)
+    t.gen()
+    c.addNewDrawing(t.getDrawString(x, y))
 
     # Seperator for the date from the weather
     l = bbshape.VLine(bbcs)
@@ -414,11 +406,11 @@ class MyHandler(BaseHTTPRequestHandler):
     l.gen()
     s = l.getDrawString(1150, 100)
 
-    rhsX = 1400
-    rhsFullWidth = 2000
+    rhsX = 1350
+    rhsFullWidth = 2100
 
     width = rhsFullWidth
-    height = 300
+    height = 325
     x = rhsX
     y = 625
     t = bbtext.Text(bbcs)
@@ -438,32 +430,50 @@ class MyHandler(BaseHTTPRequestHandler):
         t.getTextLowerLeftX() + t.getDimensions()[0], 
         t.getTextLowerLeftY() + t.getDimensions()[1] + 20)
 
-    if 1:
-      
-      width = rhsFullWidth - 1500
-      height = 225
-      x = rhsX + 1500
-      y = 350
-      t = bbtext.Text(bbcs)
-      t.setFontCharacteristics("fonts\\Exo2-Bold.otf", 150)
-      t.setString(minTemperature + " / " + maxTemperature)
-      t.setBoxed(False)
-      t.gen()
-      s += t.getDrawString((x, y))
+    width = rhsFullWidth - 1000
+    height = 225
+    x = rhsX + 1000
+    y = 350
+    t = bbtext.Text(bbcs)
+    t.setFontCharacteristics("fonts\\Exo2-Bold.otf", 150)
+    t.setString(minTemperature + " / " + maxTemperature)
+    t.setBoxed(False)
+    t.gen()
+    s += t.getDrawString((x, y))
 
-      width = rhsFullWidth - 1500
-      height = 275
-      x = rhsX + 1500
-      y = 90
-      t = bbtext.Text(bbcs)
-      t.setFontCharacteristics("fonts\\Exo2-Bold.otf", 164)
-      t.setString(description)
-      t.setBoxed(False)
-      t.gen()
-      s += t.getDrawString((x, y))
+    width = rhsFullWidth - 1000
+    height = 275
+    x = rhsX + 1000
+    y = 90
+    t = bbtext.Text(bbcs)
+    t.setFontCharacteristics("fonts\\Exo2-Bold.otf", 164)
+    t.setString(description)
+    t.setBoxed(False)
+    t.gen()
+    s += t.getDrawString((x, y))
 
     c.addNewDrawing(s)
 
+    iconFile = None
+    if conditionString == "SUNNY":
+      iconFile = "imgs/sunny.png"
+    elif conditionString == "CLOUDY":
+      iconFile = "imgs/cloudy.png"
+    elif conditionString == "SNOW":
+      iconFile = "imgs/snow.png"
+    elif conditionString == "RAIN":
+      iconFile = "imgs/rain.png"
+    else:
+      iconFile = "imgs/question.png"
+
+    i = bbimage.Image(bbcs)
+    i.setImageCharacteristics(2)
+    i.genFromFile(iconFile)
+    (w, h) = i.getDimensions()
+
+    x = rhsX + 200
+    y = 490
+    c.addNewDrawing(i.getDrawString(x, y))
 
     self.send_response(200)
     self.send_header('Content-type', 'text/html')
@@ -472,11 +482,11 @@ class MyHandler(BaseHTTPRequestHandler):
   def updateWeather(self, clientId, time, temperature):
     c = self.clientManager.getOrMakeClient(clientId)
 
-    rhsX = 1400
-    rhsFullWidth = 2000
+    rhsX = 1350
+    rhsFullWidth = 2100
 
     width = rhsFullWidth
-    height = 300
+    height = 325
     x = rhsX
     y = 625
 
@@ -590,7 +600,9 @@ class MyHandler(BaseHTTPRequestHandler):
       minTemperature = self.args["minTemperature"][0]
       maxTemperature = self.args["maxTemperature"][0]
       description = self.args["description"][0]
-      self.addWeather(clientId, dayOfWeek, dayOfMonth, time, temperature, minTemperature, maxTemperature, description)
+      condition = self.args["condition"][0]
+      self.addWeather(clientId, dayOfWeek, dayOfMonth, time, temperature,
+          minTemperature, maxTemperature, description, condition)
 
     elif self.path == "/updateWeather":
       clientId = self.args[CLIENT_ID][0]
