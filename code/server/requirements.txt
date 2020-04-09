@@ -1,3 +1,4 @@
-opencv2
+opencv-python==4.1.2.30
 numpy
 freetype-py
+requests
