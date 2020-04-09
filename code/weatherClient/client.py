@@ -17,7 +17,8 @@ FULL_WEATHER = "data/2.5/weather/"
 CITY_ID = "5809844"
 CLIENT_ID = "2C3AE83E11C6"
 
-logging.basicConfig(level=logging.DEBUG, format='(%(threadName)-10s) %(message)s')
+logging.basicConfig(level=logging.DEBUG, 
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
 parser = argparse.ArgumentParser(description='Server for iBoardBot')
 parser.add_argument('--serverName', 
@@ -50,7 +51,24 @@ parser.add_argument('--weatherAPIKey',
         help='The weather API Key to use',
         required=True)
 
+parser.add_argument('--sleepSeconds', 
+        type=int, 
+        help='Number of seconds to sleep before waking up and checking for forward progress', 
+        default = 300)
+
 config = parser.parse_args()
+
+# Track the prior day seen so that I can recognize when the current day has changed.
+priorDay = 0
+def hasDayChanged():
+  global priorDay
+
+  d = datetime.datetime.fromtimestamp(time.time())
+  if d.day != priorDay:
+    priorDay = d.day
+    return True
+  else:
+    return False
 
 
 def makeWeatherRequest():
@@ -59,7 +77,12 @@ def makeWeatherRequest():
   return r.json() 
 
 def fullRefresh():
-  data = makeWeatherRequest()
+  data = None
+  try:
+    data = makeWeatherRequest()
+  except Exception as e:
+    logging.exception("error in getting weather; ",e)
+    return False
 
   current_temp = data["main"]["temp"]
   temp_min = data["main"]["temp_min"]
@@ -97,31 +120,35 @@ def fullRefresh():
   logging.info("fullRefresh - got information; d: %s, current_temp: %s, temp_min: %s, temp_max: %s, description: %s", 
       d, current_temp, temp_min, temp_max, description)
 
-  # Make the request to the boardBot server instance.  First clear the screen and then
-  # do the full weather update.
-  boardBotParams = {'ID_IWBB': CLIENT_ID }
-  boardRequest = requests.get(
-      url = "http://{url}/erase".format(url=config.serverName),
-      params = boardBotParams)
-  if not boardRequest.ok:
-    logging.info("fullRefresh - error in clearing the board")
+  try:
+    # Make the request to the boardBot server instance.  First clear the screen and then
+    # do the full weather update.
+    boardBotParams = {'ID_IWBB': CLIENT_ID }
+    boardRequest = requests.get(
+        url = "http://{url}/erase".format(url=config.serverName),
+        params = boardBotParams)
+    if not boardRequest.ok:
+      logging.info("fullRefresh - error in clearing the board")
+      return False
+
+    boardBotParams = {
+        'ID_IWBB': CLIENT_ID,
+        'time': timeString,
+        'dayOfWeek': dayName,
+        'dayOfMonth': day,
+        'temperature': "{:0.1f}".format(current_temp),
+        'minTemperature': int(temp_min),
+        'maxTemperature': int(temp_max),
+        'condition': conditionString,
+        'description': description.upper()}
+
+    boardRequest = requests.get(
+        url = "http://{url}/weather".format(url=config.serverName),
+        params = boardBotParams)
+    return boardRequest.ok
+  except Exception as e:
+    logging.exception("error in contacting boardbot; ",e)
     return False
-
-  boardBotParams = {
-      'ID_IWBB': CLIENT_ID,
-      'time': timeString,
-      'dayOfWeek': dayName,
-      'dayOfMonth': day,
-      'temperature': "{:0.1f}".format(current_temp),
-      'minTemperature': int(temp_min),
-      'maxTemperature': int(temp_max),
-      'condition': conditionString,
-      'description': description.upper()}
-
-  boardRequest = requests.get(
-      url = "http://{url}/weather".format(url=config.serverName),
-      params = boardBotParams)
-  return boardRequest.ok
 
 
 def partialRefresh():
@@ -163,9 +190,10 @@ def main():
     while True:
       t = time.time()
 
-      if lastFullRefresh + config.fullRefreshPeriodicity < t:
-        logging.info("main - going to do a full refresh; lastFullRefresh: %d, time: %d", 
-            lastFullRefresh, t)
+      dayChanged = hasDayChanged()
+      if dayChanged or lastFullRefresh + config.fullRefreshPeriodicity < t:
+        logging.info("main - going to do a full refresh; dayChanged: %s, lastFullRefresh: %d, time: %d", 
+            dayChanged, lastFullRefresh, t)
         lastFullRefresh = t
         lastPartialRefresh = t
         fullRefresh()
@@ -176,8 +204,8 @@ def main():
         lastPartialRefresh = t
         partialRefresh()
 
-      logging.info("main - Sleeping for awhile;")
-      time.sleep(5*60)
+      logging.info("main - Sleeping for awhile; secondsToSleep: %d", config.sleepSeconds)
+      time.sleep(config.sleepSeconds)
 
 if __name__ == '__main__':
   main()

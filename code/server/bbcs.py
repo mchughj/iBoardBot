@@ -7,7 +7,7 @@ from constants import MAX_HEIGHT, MAX_WIDTH
 # bbcs = board bot command set
 
 # This module implements functionality that encapsulates how to 
-# to encode the basic commands to the iBoardBot
+# to encode the basic commands to the iBoardBot.
 
 class Bbcs(object):
   def _formPacket(self, arg1, arg2, arg3=None):
@@ -83,7 +83,7 @@ class Bbcs(object):
 
     return result
 
-  def erasePortion(self, x1,y1,x2,y2):
+  def erasePortion(self, x1,y1,x2,y2,finalSweep):
     result  = self.liftPen()
     result += self.moveTo(x1,y1)
     result += self.eraserDown()
@@ -112,6 +112,16 @@ class Bbcs(object):
       result += self.moveTo(x1, yMove)
       result += self.moveTo(x2, yMove)
       result += self.moveTo(x1, yMove)
+
+    # If finalSweep is true then do a final pass along the right hand wall.
+    # This is because the erase pushes the debris to that side and I would rather have
+    # it at the bottom.
+    if finalSweep:
+      for i in range(3):
+        result += self.eraserUp()
+        result += self.moveTo(max(x1,x2),min(y1,y2))
+        result += self.eraserDown()
+        result += self.moveTo(max(x1,x2),max(y1,y2))
 
     result += self.eraserUp()
 
