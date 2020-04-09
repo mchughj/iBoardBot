@@ -79,7 +79,7 @@ class Bbcs(object):
     return int(value * self.scaleFactor)
 
   def erasePortion(self, x1,y1,x2,y2,finalSweep):
-      logging.info("erasePortion; x1: %d, y1: %d, x2: %d, y2: %d, finalSweep: %s", 
+    logging.info("erasePortion; x1: %d, y1: %d, x2: %d, y2: %d, finalSweep: %s", 
               x1,y1,x2,y2, finalSweep)
     x1 = self._scale(x1)
     x2 = self._scale(x2)

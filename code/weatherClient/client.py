@@ -14,6 +14,7 @@ import calendar
 
 WEATHER_API = "http://api.openweathermap.org/"
 FULL_WEATHER = "data/2.5/weather/"
+FORECAST_WEATHER = "data/2.5/forecast/"
 CITY_ID = "5809844"
 CLIENT_ID = "2C3AE83E11C6"
 
@@ -27,12 +28,12 @@ parser.add_argument('--serverName',
         help='Server name where the board bot server is runnng.  Defaults to localhost.')
 
 parser.add_argument('--onceFull', 
-        help='Run a single time and then stop',
+        help='Run a single time with full information printed and then stop',
         default = False, 
         action = "store_true")
 
 parser.add_argument('--oncePartial', 
-        help='Run a single time and then stop',
+        help='Run a single time with partial information printed and then stop',
         default = False, 
         action = "store_true")
 
@@ -60,6 +61,9 @@ config = parser.parse_args()
 
 # Track the prior day seen so that I can recognize when the current day has changed.
 priorDay = 0
+dayLow = 1000
+dayHigh = -1000
+
 def hasDayChanged():
   global priorDay
 
@@ -70,6 +74,29 @@ def hasDayChanged():
   else:
     return False
 
+def getTemperatureForecast():
+  global priorDay, dayLow, dayHigh
+
+  params = {'id':CITY_ID, 'units': 'imperial', 'appid': config.weatherAPIKey}
+  r = requests.get(url = WEATHER_API + FORECAST_WEATHER, params = params) 
+  data = r.json()
+
+  for i in range(12):
+    itemTime = data["list"][i]["dt"]
+    d = datetime.datetime.fromtimestamp(int(itemTime))
+    if d.day == priorDay:
+      itemMin = float(data["list"][i]["main"]["temp_min"])
+      itemMax = float(data["list"][i]["main"]["temp_max"])
+      logging.info(
+          "getTemperatureForecast - found another entry for today; itemMin: %d, itemMax: %d",
+          itemMin, itemMax)
+      dayLow = min(dayLow, itemMin)
+      dayHigh = max(dayHigh, itemMax)
+      
+  logging.info("getTemperatureForecast - final values; dayLow: %d, dayHigh: %d", 
+      dayLow, dayHigh)
+  return dayLow, dayHigh
+
 
 def makeWeatherRequest():
   params = {'id':CITY_ID, 'units': 'imperial', 'appid': config.weatherAPIKey}
@@ -77,20 +104,22 @@ def makeWeatherRequest():
   return r.json() 
 
 def fullRefresh():
+
   data = None
   try:
     data = makeWeatherRequest()
+    (tempMin, tempMax) = getTemperatureForecast()
   except Exception as e:
-    logging.exception("error in getting weather; ",e)
+    logging.exception("error in getting weather or forecast")
     return False
 
-  current_temp = data["main"]["temp"]
-  temp_min = data["main"]["temp_min"]
-  temp_max = data["main"]["temp_max"]
-  icon_code = data["weather"][0]["icon"]
+  currentTemp = data["main"]["temp"]
   condition = int(data["weather"][0]["id"])
   description = data["weather"][0]["description"]
   time = data["dt"]
+
+  tempMin = min(tempMin, currentTemp)
+  tempMax = max(tempMax, currentTemp)
 
   d = datetime.datetime.fromtimestamp(int(time))
   dayName = calendar.day_abbr[d.weekday()].upper()
@@ -117,8 +146,8 @@ def fullRefresh():
     else:
       conditionString = "UNKNOWN"
 
-  logging.info("fullRefresh - got information; d: %s, current_temp: %s, temp_min: %s, temp_max: %s, description: %s", 
-      d, current_temp, temp_min, temp_max, description)
+  logging.info("fullRefresh - got information; d: %s, currentTemp: %s, tempMin: %s, tempMax: %s, description: %s", 
+      d, currentTemp, tempMin, tempMax, description)
 
   try:
     # Make the request to the boardBot server instance.  First clear the screen and then
@@ -136,9 +165,9 @@ def fullRefresh():
         'time': timeString,
         'dayOfWeek': dayName,
         'dayOfMonth': day,
-        'temperature': "{:0.1f}".format(current_temp),
-        'minTemperature': int(temp_min),
-        'maxTemperature': int(temp_max),
+        'temperature': "{:0.1f}".format(currentTemp),
+        'minTemperature': int(tempMin),
+        'maxTemperature': int(tempMax),
         'condition': conditionString,
         'description': description.upper()}
 
@@ -147,7 +176,7 @@ def fullRefresh():
         params = boardBotParams)
     return boardRequest.ok
   except Exception as e:
-    logging.exception("error in contacting boardbot; ",e)
+    logging.exception("error in contacting boardbot;")
     return False
 
 
@@ -187,10 +216,16 @@ def main():
   if not (config.onceFull or config.oncePartial):
     lastFullRefresh = 0
     lastPartialRefresh = 0
+
     while True:
       t = time.time()
 
       dayChanged = hasDayChanged()
+      if dayChanged:
+        # Reset the high and low day forcast information
+        dayLow = 1000
+        dayHigh = -1000
+
       if dayChanged or lastFullRefresh + config.fullRefreshPeriodicity < t:
         logging.info("main - going to do a full refresh; dayChanged: %s, lastFullRefresh: %d, time: %d", 
             dayChanged, lastFullRefresh, t)
