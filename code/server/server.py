@@ -15,6 +15,8 @@ import bbinversetextbox
 import bbshape
 import freetype
 import bbtext
+import bbfilledtext
+import cv2
 
 from constants import MAX_HEIGHT, MAX_WIDTH
 
@@ -370,7 +372,7 @@ class MyHandler(BaseHTTPRequestHandler):
     if x == 0:
       x = int((MAX_WIDTH - w) / 2)
 
-    logging.debug("addImage - going get drawing string; w: %d, h: %d, x: %d, y: %d", 
+    logging.debug("addImage - getting string; w: %d, h: %d, x: %d, y: %d", 
         w, h, x, y)
 
     c.addNewDrawing(i.getDrawString(x, y))
@@ -379,6 +381,7 @@ class MyHandler(BaseHTTPRequestHandler):
       minTemperature, maxTemperature, description, conditionString):
     c = self.clientManager.getOrMakeClient(clientId)
 
+    s = ""
     y = 800
     x = 250
     width = 700
@@ -413,13 +416,13 @@ class MyHandler(BaseHTTPRequestHandler):
     width = rhsFullWidth
     height = 325
     x = rhsX
-    y = 625
-    t = bbtext.Text(bbcs)
+    y = 950
+    t = bbfilledtext.FilledText(bbcs, width, height)
     t.setBoxed(True)
-    t.setFontCharacteristics("fonts\\OpenSans-Bold.ttf", 320)
+    t.setFontCharacteristics(cv2.FONT_HERSHEY_SIMPLEX, 8, 20)
     t.setString(time + " - " + temperature)
     t.gen()
-    s += t.getDrawString((x, y, width, height))
+    s += t.getDrawString(x, y)
 
     logging.info("addWeather - going to draw the circle; t.getDimensions: %s",
         t.getDimensions())
@@ -428,8 +431,8 @@ class MyHandler(BaseHTTPRequestHandler):
     circle.setRadius(20)
     circle.gen()
     s += circle.getDrawString(
-        t.getTextLowerLeftX() + t.getDimensions()[0], 
-        t.getTextLowerLeftY() + t.getDimensions()[1] + 20)
+        x + t.getTextLowerLeftX() + t.getDimensions()[0], 
+        (y - height) + (t.getDimensions()[1] + 95))
 
     width = rhsFullWidth - 1000
     height = 225
@@ -658,7 +661,7 @@ class MyHandler(BaseHTTPRequestHandler):
 
 
   def do_POST(self):
-    # Jason :: TODO: I need to accept post requests for images and other 
+    # TODO: I need to accept post requests for images and other 
     # use cases.  Must extend/write this.
     body = self.rfile.read(int(self.headers.getheader('Content-Length')))
 

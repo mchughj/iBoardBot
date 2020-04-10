@@ -37,15 +37,11 @@ parser.add_argument('--oncePartial',
         default = False, 
         action = "store_true")
 
-parser.add_argument('--partialRefreshPeriodicity', 
+parser.add_argument('--hours', 
         type=int, 
-        help='Number of seconds to delay before a partial refresh',
-        default = 3600)
-
-parser.add_argument('--fullRefreshPeriodicity', 
-        type=int, 
-        help='Number of seconds to delay before a full refresh', 
-        default = 86400)
+        nargs='+',
+        help='A list of hours for which, at the top of the hour, a full refresh will be executed.',
+        default = [5, 10, 15])
 
 parser.add_argument('--weatherAPIKey', 
         type=str, 
@@ -204,7 +200,26 @@ def partialRefresh():
       params = boardBotParams)
   return boardRequest.ok
 
-  
+lastFullRefresh = 0
+priorHour = 0
+
+def shouldDoFullRefresh(hours, t):
+  global priorHour
+
+  d = datetime.datetime.fromtimestamp(time.time())
+  if d.hour != priorHour:
+    priorHour = d.hour
+    # The hour has changed so presumably I am somewhere near the top of the hour
+    # Look to see if this hour is one in which I should do a full refresh.
+    if d.hour in hours:
+      logging.info("shouldDoFullRefresh - hour has changed and in list; hour: %d, hours: %s",
+          d.hour, hours)
+      return True
+    else:
+      logging.info("shouldDoFullRefresh - hour has changed but not in list; hour: %d, hours: %s",
+          d.hour, hours)
+  return False
+
 
   
 def main():
@@ -214,32 +229,21 @@ def main():
     partialRefresh()
 
   if not (config.onceFull or config.oncePartial):
-    lastFullRefresh = 0
-    lastPartialRefresh = 0
 
     while True:
       t = time.time()
-
       dayChanged = hasDayChanged()
       if dayChanged:
+        logging.info("main - day has changed so resetting low and high;")
         # Reset the high and low day forcast information
         dayLow = 1000
         dayHigh = -1000
 
-      if dayChanged or lastFullRefresh + config.fullRefreshPeriodicity < t:
-        logging.info("main - going to do a full refresh; dayChanged: %s, lastFullRefresh: %d, time: %d", 
-            dayChanged, lastFullRefresh, t)
+      if shouldDoFullRefresh(config.hours, t):
         lastFullRefresh = t
-        lastPartialRefresh = t
         fullRefresh()
 
-      if lastPartialRefresh + config.partialRefreshPeriodicity < t:
-        logging.info("main - going to do a partial refresh; lastPartialRefresh: %d, time: %d", 
-            lastPartialRefresh, t)
-        lastPartialRefresh = t
-        partialRefresh()
-
-      logging.info("main - Sleeping for awhile; secondsToSleep: %d", config.sleepSeconds)
+      logging.info("main - going to Sleep; secondsToSleep: %d", config.sleepSeconds)
       time.sleep(config.sleepSeconds)
 
 if __name__ == '__main__':
