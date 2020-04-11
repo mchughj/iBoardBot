@@ -63,20 +63,20 @@ class Image(object):
     for c in self.contours:
       area = cv2.contourArea(c)
       if len(c) >= 2:
-        logging.info("getDrawString - drawing contour; area: %d, len: %d", 
+        logging.debug("getDrawString - drawing contour; area: %d, len: %d", 
             area, len(c))
 
         start = c[0]
         result += self.bbcs.liftPen()
-        logging.info("drawImage - lifting pen;")
+        logging.debug("drawImage - lifting pen;")
         result += self.bbcs.moveTo(int(start[0][0] * self.scaleFactor) + offsetX,
             offsetY - int(start[0][1] * self.scaleFactor))
         result += self.bbcs.dropPen()
-        logging.info("drawImage - dropping pen;")
+        logging.debug("drawImage - dropping pen;")
         for e in c[1:]:
           result += self.bbcs.moveTo(int(e[0][0] * self.scaleFactor) + offsetX,
               offsetY - int(e[0][1] * self.scaleFactor))
-        logging.info("drawImage - lifting pen;")
+        logging.debug("drawImage - lifting pen;")
         result += self.bbcs.liftPen()
 
       else:

@@ -20,7 +20,7 @@ import cv2
 
 from constants import MAX_HEIGHT, MAX_WIDTH
 
-logging.basicConfig(level=logging.DEBUG, format='(%(threadName)-10s) %(message)s')
+logging.basicConfig(level=logging.INFO, format='(%(threadName)-10s) %(message)s')
 
 parser = argparse.ArgumentParser(description='Server for iBoardBot')
 parser.add_argument('--port', type=int, help='Port to listen on', default=80)
@@ -342,7 +342,7 @@ class MyHandler(BaseHTTPRequestHandler):
     c.clearQueue()
 
   def erase(self, clientId):
-    c = self.clientManager.getClient(clientId)
+    c = self.clientManager.getOrMakeClient(clientId)
     c.addNewDrawing(bbcs.eraseAll())
 
   def erasePortion(self, clientId, x1, y1, x2, y2, finalSweep):
@@ -410,16 +410,16 @@ class MyHandler(BaseHTTPRequestHandler):
     l.gen()
     s = l.getDrawString(1150, 100)
 
-    rhsX = 1350
-    rhsFullWidth = 2100
+    rhsX = 1275
+    rhsFullWidth = 2175
 
     width = rhsFullWidth
-    height = 325
+    height = 375
     x = rhsX
     y = 950
     t = bbfilledtext.FilledText(bbcs, width, height)
     t.setBoxed(True)
-    t.setFontCharacteristics(cv2.FONT_HERSHEY_SIMPLEX, 8, 20)
+    t.setFontCharacteristics(cv2.FONT_HERSHEY_SIMPLEX, 10, 25)
     t.setString(time + " - " + temperature)
     t.gen()
     s += t.getDrawString(x, y)
@@ -434,9 +434,9 @@ class MyHandler(BaseHTTPRequestHandler):
         x + t.getTextLowerLeftX() + t.getDimensions()[0], 
         (y - height) + (t.getDimensions()[1] + 95))
 
-    width = rhsFullWidth - 1000
+    width = rhsFullWidth - 700
     height = 225
-    x = rhsX + 1000
+    x = rhsX + 700
     y = 350
     t = bbtext.Text(bbcs)
     t.setFontCharacteristics("fonts\\Exo2-Bold.otf", 150)
@@ -445,9 +445,9 @@ class MyHandler(BaseHTTPRequestHandler):
     t.gen()
     s += t.getDrawString((x, y))
 
-    width = rhsFullWidth - 1000
+    width = rhsFullWidth - 700
     height = 275
-    x = rhsX + 1000
+    x = rhsX + 700
     y = 90
     t = bbtext.Text(bbcs)
     t.setFontCharacteristics("fonts\\Exo2-Bold.otf", 164)
@@ -475,7 +475,7 @@ class MyHandler(BaseHTTPRequestHandler):
     i.genFromFile(iconFile)
     (w, h) = i.getDimensions()
 
-    x = rhsX + 200
+    x = rhsX + 50
     y = 490
     c.addNewDrawing(i.getDrawString(x, y))
 

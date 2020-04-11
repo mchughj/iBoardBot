@@ -83,11 +83,15 @@ void setup()
   Serial.println(F("Reading Wifi configuration..."));
   readWifiConfig();
 
+  Serial.print( F("WifiConfig.status: "));
   Serial.println(WifiConfig.status);
+  Serial.print( F("WifiConfig.ssid: "));
   Serial.println(WifiConfig.ssid);
-  //Serial.println(WifiConfig.pass);
-  Serial.println("****");
+  Serial.print( F("WifiConfig.pass: "));
+  Serial.println(WifiConfig.pass);
+  Serial.print( F("WifiConfig.proxy: "));
   Serial.println(WifiConfig.proxy);
+  Serial.print( F("WifiConfig.port: "));
   Serial.println(WifiConfig.port);
 
   // if wifi parameters are not configured we start the config web server
@@ -199,8 +203,6 @@ void setup()
   ESPflush();
 
   Serial.println(F("Wifi parameters:"));
-  Serial.print(F("Host:"));
-  Serial.println(SERVER_HOST);
   Serial.print(F("Url:"));
   Serial.println(SERVER_URL);
   if ((WifiConfig.port > 0) && (WifiConfig.port < 65000) && (strlen(WifiConfig.proxy) > 0))

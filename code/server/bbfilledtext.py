@@ -2,7 +2,6 @@
 import cv2
 import numpy as np
 import bbimage
-import logging
 
 class FilledText(object):
   def __init__(self, bbcs, width, height):
@@ -59,13 +58,33 @@ class FilledText(object):
             self.fontColor, 
             self.fontLineThickness)
 
-    # After we have drawn the black text now we put small white lines through the text
-    # so that the contours generate appropriate lines for the entire filled in area.
-    # No worries about the white lines as the pen is thicker than the distance captured
-    # between the resulting contours.
-    self.mat[::2,:] = 0
+    if 0:
+      # This approach makes the board bot draw tons and tons of redundant lines.  
+      # Messy.
+
+      # After we have drawn the black text now we put small white lines through the text
+      # so that the contours generate appropriate lines for the entire filled in area.
+      # No worries about the white lines as the pen is thicker than the distance captured
+      # between the resulting contours.
+      self.mat[::2,:] = 0
+    else:
+      # Using a different font thicknesses draws the letters perfectly inset from
+      # one another.  The important part here though is that the letters are drawn
+      # black so that the white outline remains.
+
+      # Put the text back on again but with a small thickness
+      cv2.putText(self.mat, 
+            self.string, 
+            (self.textStartLowerLeftX, self.textStartLowerLeftY), 
+            self.font,
+            self.fontScale, 
+            0,
+            int(self.fontLineThickness / 8))
 
     cv2.rectangle(self.mat, (0,0), (self.width-1, self.height-1), 255, 1)
+
+    # cv2.imshow("Test",self.mat)
+    # cv2.waitKey(0)
 
     self.bbImage = bbimage.Image(self.bbcs)
     self.bbImage.genFromImage(self.mat)

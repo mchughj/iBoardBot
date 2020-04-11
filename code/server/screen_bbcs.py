@@ -31,12 +31,10 @@ class Bbcs(object):
     y = MAX_HEIGHT - y
     newLocation = (self._scale(x), self._scale(y))
     if self.penIsDown:
-      if 0:
-        logging.info("moveTo - drawing line; from: %s, to: %s", self.currentLocation, newLocation)
+      logging.debug("moveTo - drawing line; from: %s, to: %s", self.currentLocation, newLocation)
       cv2.line(self.mat, self.currentLocation, newLocation, (255,0,0), 1, 4)
     else:
-      if 0: 
-        logging.info("moveTo - just relocating; newLocation: %s", newLocation)
+      logging.debug("moveTo - just relocating; newLocation: %s", newLocation)
 
     self.currentLocation = newLocation
     return ""

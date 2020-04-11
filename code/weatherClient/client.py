@@ -161,7 +161,7 @@ def fullRefresh():
         'time': timeString,
         'dayOfWeek': dayName,
         'dayOfMonth': day,
-        'temperature': "{:0.1f}".format(currentTemp),
+        'temperature': int(currentTemp),
         'minTemperature': int(tempMin),
         'maxTemperature': int(tempMax),
         'condition': conditionString,

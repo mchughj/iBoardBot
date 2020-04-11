@@ -2,7 +2,6 @@
 import cv2
 import numpy as np
 import bbimage
-import logging
 
 class InverseTextBox(object):
   def __init__(self, bbcs, width, height):
