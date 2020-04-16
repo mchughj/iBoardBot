@@ -99,8 +99,32 @@ def makeWeatherRequest():
   r = requests.get(url = WEATHER_API + FULL_WEATHER, params = params) 
   return r.json() 
 
-def fullRefresh():
 
+def getDateAndTimeInformation():
+  # Use the current time and not the time found in any web requests because those responses
+  # may contain times in the past so that the information is internally consisten. 
+  # (e.g., the time may be a few minutes old so that it reflects the time that temperature 
+  # readings were taken).
+  d = datetime.datetime.fromtimestamp(time.time())
+
+  hour = d.hour
+  hourModifier = "AM"
+  if hour == 0:
+    # Midnight is hour zero otherwise known as 12 AM (Ante Meridiem)
+    hour = 12
+  elif hour >= 12:
+    # Otherwise the 12th hour begins the PM cycle.  
+    hourModifier = "PM"
+    if hour > 12:
+      # The last hour - value 23 - is 11PM.  After that hour 0 turns into 12 AM.
+      hour -= 12
+
+  dayName = calendar.day_abbr[d.weekday()].upper()
+
+  return hour, hourModifier, d.day, dayName
+
+
+def fullRefresh():
   data = None
   try:
     data = makeWeatherRequest()
@@ -117,11 +141,9 @@ def fullRefresh():
   tempMin = min(tempMin, currentTemp)
   tempMax = max(tempMax, currentTemp)
 
-  d = datetime.datetime.fromtimestamp(int(time))
-  dayName = calendar.day_abbr[d.weekday()].upper()
-
-  timeString = "{:02d}:{:02d}".format(d.hour, d.minute)
-  day = "{:02d}".format(d.day)
+  (hour, hourModifier, day, dayName) = getDateAndTimeInformation()
+  timeString = "{:02d} {}".format(hour, hourModifier)
+  dayString = "{:02d}".format(day)
 
   # Condition codes:  https://openweathermap.org/weather-conditions
   if condition == 800:
@@ -142,8 +164,9 @@ def fullRefresh():
     else:
       conditionString = "UNKNOWN"
 
-  logging.info("fullRefresh - got information; d: %s, currentTemp: %s, tempMin: %s, tempMax: %s, description: %s", 
-      d, currentTemp, tempMin, tempMax, description)
+  logging.info("fullRefresh - got information; timeString: %s, currentTemp: %s, tempMin: %s, "
+               "tempMax: %s, description: %s", timeString, currentTemp, tempMin, tempMax, 
+               description)
 
   try:
     # Make the request to the boardBot server instance.  First clear the screen and then
@@ -160,7 +183,7 @@ def fullRefresh():
         'ID_IWBB': CLIENT_ID,
         'time': timeString,
         'dayOfWeek': dayName,
-        'dayOfMonth': day,
+        'dayOfMonth': dayString,
         'temperature': int(currentTemp),
         'minTemperature': int(tempMin),
         'maxTemperature': int(tempMax),
@@ -178,21 +201,19 @@ def fullRefresh():
 
 def partialRefresh():
   data = makeWeatherRequest()
+  currentTemp = data["main"]["temp"]
 
-  current_temp = data["main"]["temp"]
-  time = data["dt"]
-  d = datetime.datetime.fromtimestamp(int(time))
-  timeString = "{:02d}:{:02d}".format(d.hour, d.minute)
+  (hour, hourModifier, day, dayName) = getDateAndTimeInformation()
+  timeString = "{:02d} {}".format(hour, hourModifier)
 
-  logging.info("partialRefresh - got information; d: %s, current_temp: %s", 
-      d, current_temp)
+  logging.info("partialRefresh - got information; timeString: %s, currentTemp: %s", 
+      timeString, currentTemp)
 
   # Make the request to the boardBot server instance
-
   boardBotParams = {
       'ID_IWBB': CLIENT_ID,
       'time': timeString,
-      'temperature': "{:0.1f}".format(current_temp),
+      'temperature': int(currentTemp),
       }
 
   boardRequest = requests.get(
