@@ -158,7 +158,6 @@ class Client(object):
     self.queue.append(entry)
 
   def getNextBlock(self, timeoutSeconds):
-    logging.info("getNextBlock - on enter;")
     with self.condition:
       while len(self.queue) == 0:
         result = self.condition.wait(timeoutSeconds)
@@ -436,7 +435,7 @@ class MyHandler(BaseHTTPRequestHandler):
 
     width = rhsFullWidth - 700
     height = 225
-    x = rhsX + 700
+    x = rhsX + 600
     y = 350
     t = bbtext.Text(bbcs)
     t.setFontCharacteristics("fonts\\Exo2-Bold.otf", 150)
@@ -447,7 +446,7 @@ class MyHandler(BaseHTTPRequestHandler):
 
     width = rhsFullWidth - 700
     height = 275
-    x = rhsX + 700
+    x = rhsX + 600
     y = 90
     t = bbtext.Text(bbcs)
     t.setFontCharacteristics("fonts\\Exo2-Bold.otf", 164)
@@ -468,6 +467,8 @@ class MyHandler(BaseHTTPRequestHandler):
     elif conditionString == "RAIN":
       iconFile = "imgs/rain.png"
     else:
+      logging.info("addWeather - unknown condition string; conditionString: %s",
+          conditionString)
       iconFile = "imgs/question.png"
 
     i = bbimage.Image(bbcs)
@@ -640,7 +641,7 @@ class MyHandler(BaseHTTPRequestHandler):
 
 
   def sendDeviceEmptyResult(self):
-    logging.info("sendingDeviceEmptyResult; ")
+    logging.debug("sendingDeviceEmptyResult; ")
 
     # Any result which has less than 6 bytes in the body is considered to
     # be an empty result and will cause the device to repoll at a later time.

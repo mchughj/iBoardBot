@@ -25,7 +25,7 @@ class Bbcs(object):
 
 
   def moveTo(self, x, y):
-    logging.info("moveTo; x: %d, y: %d", x, y)
+    logging.debug("moveTo; x: %d, y: %d", x, y)
     if y<0:
         y = 0
     if x<0:
@@ -115,7 +115,7 @@ class Bbcs(object):
 
     # If finalSweep is true then do a final pass along the right hand wall.
     # This is because the erase pushes the debris to that side and I would rather have
-    # it at the bottom.
+    # it at the bottom.  This turned out to not look as good as I would like.
     if finalSweep:
       for i in range(3):
         result += self.eraserUp()

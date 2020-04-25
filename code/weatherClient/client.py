@@ -55,32 +55,38 @@ parser.add_argument('--sleepSeconds',
 
 config = parser.parse_args()
 
-# Track the prior day seen so that I can recognize when the current day has changed.
-priorDay = 0
+# Track the current day seen so that I can recognize when the days have rolled over and we 
+# are in a new day.
+currentDay = 0
 dayLow = 1000
 dayHigh = -1000
 
-def hasDayChanged():
-  global priorDay
+def trackDayChanges():
+  global currentDay, dayLow, dayHigh
 
   d = datetime.datetime.fromtimestamp(time.time())
-  if d.day != priorDay:
-    priorDay = d.day
-    return True
+  if d.day != currentDay:
+    currentDay = d.day
+    logging.info("trackDayChanges - day has changed so resetting low and high;")
+    # Reset the high and low day forcast information
+    dayLow = 1000
+    dayHigh = -1000
   else:
     return False
 
 def getTemperatureForecast():
-  global priorDay, dayLow, dayHigh
+  global currentDay, dayLow, dayHigh
 
   params = {'id':CITY_ID, 'units': 'imperial', 'appid': config.weatherAPIKey}
   r = requests.get(url = WEATHER_API + FORECAST_WEATHER, params = params) 
   data = r.json()
 
+  logging.debug("getTemperatureForecast - fetched the forecast;")
+
   for i in range(12):
     itemTime = data["list"][i]["dt"]
     d = datetime.datetime.fromtimestamp(int(itemTime))
-    if d.day == priorDay:
+    if d.day == currentDay:
       itemMin = float(data["list"][i]["main"]["temp_min"])
       itemMax = float(data["list"][i]["main"]["temp_max"])
       logging.info(
@@ -151,22 +157,22 @@ def fullRefresh():
   elif condition > 800:
     conditionString = "CLOUDY"
   else:
-    condition /= 100
+    generalCondition = int(condition / 100)
 
-    if condition == 7:
+    if generalCondition == 7:
       conditionString = "CLOUDY"
-    elif condition == 6:
+    elif generalCondition == 6:
       conditionString = "SNOW"
-    elif condition == 5:
+    elif generalCondition == 5:
       conditionString = "RAIN"
-    elif condition == 3:
+    elif generalCondition == 3:
       conditionString = "RAIN"
     else:
       conditionString = "UNKNOWN"
 
   logging.info("fullRefresh - got information; timeString: %s, currentTemp: %s, tempMin: %s, "
-               "tempMax: %s, description: %s", timeString, currentTemp, tempMin, tempMax, 
-               description)
+      "tempMax: %s, description: %s, condition: %d, conditionString: %s", timeString, 
+      currentTemp, tempMin, tempMax, description, condition, conditionString)
 
   try:
     # Make the request to the boardBot server instance.  First clear the screen and then
@@ -245,20 +251,16 @@ def shouldDoFullRefresh(hours, t):
   
 def main():
   if config.onceFull:
+    trackDayChanges()
     fullRefresh()
   if config.oncePartial:
+    trackDayChanges()
     partialRefresh()
 
   if not (config.onceFull or config.oncePartial):
-
     while True:
       t = time.time()
-      dayChanged = hasDayChanged()
-      if dayChanged:
-        logging.info("main - day has changed so resetting low and high;")
-        # Reset the high and low day forcast information
-        dayLow = 1000
-        dayHigh = -1000
+      trackDayChanges()
 
       if shouldDoFullRefresh(config.hours, t):
         lastFullRefresh = t
