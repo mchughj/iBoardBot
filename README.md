@@ -95,4 +95,15 @@ or
 sudo journalctl -u weatherclient.service -f
 ```
 
+## Display
+
+I've decided to host the server on a raspberry PI and put a 4" HDMI screen on top of the PI for a simple UI.   I purchased one from Miuzei and used these instructions to get the touch component working.
+
+```
+sudo rm -rf LCD-show
+git clone https://github.com/goodtft/LCD-show.git
+chmod -R 755 LCD-show
+cd LCD-show/
+sudo ./MPI4008-show
+```
 
