@@ -11,6 +11,7 @@ import urllib.parse
 import requests
 import datetime
 import calendar
+import pprint
 
 WEATHER_API = "http://api.openweathermap.org/"
 FULL_WEATHER = "data/2.5/weather/"
@@ -26,6 +27,11 @@ parser.add_argument('--serverName',
         type=str, 
         default="localhost",
         help='Server name where the board bot server is runnng.  Defaults to localhost.')
+
+parser.add_argument('--serverPort', 
+        type=int, 
+        default=80,
+        help='Server port where the board bot server is runnng.  Defaults to 80.')
 
 parser.add_argument('--onceFull', 
         help='Run a single time with full information printed and then stop',
@@ -179,7 +185,7 @@ def fullRefresh():
     # do the full weather update.
     boardBotParams = {'ID_IWBB': CLIENT_ID }
     boardRequest = requests.get(
-        url = "http://{url}/erase".format(url=config.serverName),
+        url = "http://{url}:{port}/erase".format(url=config.serverName, port=config.serverPort),
         params = boardBotParams)
     if not boardRequest.ok:
       logging.info("fullRefresh - error in clearing the board")
@@ -196,8 +202,10 @@ def fullRefresh():
         'condition': conditionString,
         'description': description.upper()}
 
+    
+    logging.info("Making request to http://{url}:{port}/weather - params: {params}".format(url=config.serverName, port=config.serverPort, params=pprint.pformat(boardBotParams)))
     boardRequest = requests.get(
-        url = "http://{url}/weather".format(url=config.serverName),
+        url = "http://{url}:{port}/weather".format(url=config.serverName, port=config.serverPort),
         params = boardBotParams)
     return boardRequest.ok
   except Exception as e:
@@ -223,7 +231,7 @@ def partialRefresh():
       }
 
   boardRequest = requests.get(
-      url = "http://{url}/updateWeather".format(url=config.serverName),
+      url = "http://{url}:{port}/updateWeather".format(url=config.serverName, port=config.serverPort),
       params = boardBotParams)
   return boardRequest.ok
 

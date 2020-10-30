@@ -70,3 +70,29 @@ to install all current dependencies.
 All fonts included here are available via the SIL Open Font license.  More can 
 be found at [Font Squirrel](https://www.fontsquirrel.com/fonts/list/popular).
 
+## Installation in Linux systems
+
+I've moved the server process, along with the periodic weather client, over to a Raspberry PI and am running all server processes using systemd. 
+
+To 'install' and get the server and weather client working use
+
+```
+cd code/server/
+./install.sh
+cd ../weatherClient/
+./install.sh
+```
+
+From this point forward the services will be restarted automatically on startup of the Raspberry PI.  To see the logs use
+
+```
+sudo journalctl -u boardbot.service -f
+```
+
+or 
+
+```
+sudo journalctl -u weatherclient.service -f
+```
+
+

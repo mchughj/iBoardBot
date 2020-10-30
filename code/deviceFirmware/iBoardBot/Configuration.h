@@ -5,8 +5,8 @@
 // #define SERVER_HOST "ibb.jjrobots.com"
 // #define SERVER_URL "http://ibb.jjrobots.com/ibbsvr/ibb.php"
 
-#define SERVER_HOST "192.168.1.164"
-#define SERVER_URL "http://192.168.1.164/ibb-device/"
+#define SERVER_HOST "192.168.0.131"
+#define SERVER_URL "http://192.168.0.131/ibb-device/"
 
 #define MAX_PACKET_SIZE 768
 
