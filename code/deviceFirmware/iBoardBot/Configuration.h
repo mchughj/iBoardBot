@@ -5,8 +5,8 @@
 // #define SERVER_HOST "ibb.jjrobots.com"
 // #define SERVER_URL "http://ibb.jjrobots.com/ibbsvr/ibb.php"
 
-#define SERVER_HOST "192.168.1.164"
-#define SERVER_URL "http://192.168.1.164/ibb-device/"
+#define SERVER_HOST "192.168.0.131"
+#define SERVER_URL "http://192.168.0.131/ibb-device/"
 
 #define MAX_PACKET_SIZE 768
 
@@ -37,9 +37,11 @@
 #define SERVO_NEUTRO 1450  // Servo neutral position
 #define SERVO_MIN_PULSEWIDTH 900
 #define SERVO_MAX_PULSEWIDTH 2100
+
 // Servo values por NoPaint, Paint and Erase servo positions...
-#define SERVO1_PAINT 1800
-#define SERVO1_ERASER 1080
+#define SERVO1_NOERASER 1900
+#define SERVO1_ERASER 1180
+
 #define SERVO2_LIFT 1290 //1300
 #define SERVO2_PAINT 1660 //1650
 
@@ -198,5 +200,3 @@ int sign(int val)
   else
     return(1);
 }
-
-
