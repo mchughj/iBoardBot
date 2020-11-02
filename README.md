@@ -62,7 +62,7 @@ for text.
 Use the generic 
 
 ```
-pip install requirements.txt
+pip install -r requirements.txt
 ```
 
 to install all current dependencies.
