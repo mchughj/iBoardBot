@@ -1,3 +1,4 @@
+#!/home/pi/.virtualenvs/cv/bin/python
 
 import time
 import argparse
@@ -8,6 +9,7 @@ from functools import partial
 import logging
 import urllib.parse
 import threading
+import os.path
 
 import bbcs
 import bbimage
@@ -17,6 +19,8 @@ import freetype
 import bbtext
 import bbfilledtext
 import cv2
+
+import json
 
 from constants import MAX_HEIGHT, MAX_WIDTH
 
@@ -224,7 +228,7 @@ class MyHandler(BaseHTTPRequestHandler):
     self.sendText("Text: <input size=\"127\" type=\"text\" name=\"s\"></BR>")
     self.sendText("ClientId: <input size=\"127\" type=\"text\" name=\"ID_IWBB\" value=\"{}\"></BR>".format(clientId))
     self.sendText("Size: <input size=\"127\" type=\"text\" value=\"256\" name=\"size\"></BR>")
-    self.sendText("Font: <input size=\"127\" type=\"text\" value=\"fonts\\Exo2-Bold.otf\" name=\"f\"></BR>")
+    self.sendText("Font: <input size=\"127\" type=\"text\" value=\"{}\" name=\"f\"></BR>".format(os.path.join(os.path.dirname(__file__),'fonts','Exo2-Bold.otf')))
     self.sendText("x: <input size=\"127\" type=\"text\" value=\"0\" name=\"x\"></BR>")
     self.sendText("y: <input size=\"127\" type=\"text\" value=\"0\" name=\"y\"></BR>")
     self.sendText("<input type=\"submit\" value=\"Submit\">")
@@ -255,6 +259,21 @@ class MyHandler(BaseHTTPRequestHandler):
     self.sendText("</form>")
     self.sendText("</html>")
 
+  def getStatus(self, clientId):
+    logging.info("getStatus")
+    self.send_response(200)
+    self.send_header('Content-type', 'text/json')
+
+    c = self.getOrMakeClient(clientId)
+
+    data = { 
+        "clientId": clientId,
+        "createdMs": c.createdMs,
+        "lastAccessMs": c.lastAccessMs,
+        "queueSize": c.getQueueSize(),
+        }
+
+    self.sendText(json.dumps(data))
 
   def showMainMenu(self, message = None):
     logging.info("showMainMenu")
@@ -381,6 +400,7 @@ class MyHandler(BaseHTTPRequestHandler):
 
   def addWeather(self, clientId, dayOfWeek, dayOfMonth, time, temperature,
       minTemperature, maxTemperature, description, conditionString):
+    logging.info("addWeather - received the request to add the weather")
     c = self.clientManager.getOrMakeClient(clientId)
 
     s = ""
@@ -389,7 +409,7 @@ class MyHandler(BaseHTTPRequestHandler):
     width = 700
     height = 250
     t = bbtext.Text(bbcs)
-    t.setFontCharacteristics("fonts\\Exo2-Bold.otf", 256)
+    t.setFontCharacteristics(os.path.join(os.path.dirname(__file__),'fonts','Exo2-Bold.otf'), 256)
     t.setString(dayOfWeek)
     t.gen()
     c.addNewDrawing(t.getDrawString((x, y, width, height)))
@@ -441,7 +461,7 @@ class MyHandler(BaseHTTPRequestHandler):
     x = rhsX + 600
     y = 350
     t = bbtext.Text(bbcs)
-    t.setFontCharacteristics("fonts\\Exo2-Bold.otf", 150)
+    t.setFontCharacteristics(os.path.join(os.path.dirname(__file__),'fonts','Exo2-Bold.otf'), 150)
     t.setString(minTemperature + " / " + maxTemperature)
     t.setBoxed(False)
     t.gen()
@@ -452,7 +472,7 @@ class MyHandler(BaseHTTPRequestHandler):
     x = rhsX + 600
     y = 90
     t = bbtext.Text(bbcs)
-    t.setFontCharacteristics("fonts\\Exo2-Bold.otf", 164)
+    t.setFontCharacteristics(os.path.join(os.path.dirname(__file__),'fonts','Exo2-Bold.otf'), 164)
     t.setString(description)
     t.setBoxed(False)
     t.gen()
@@ -502,7 +522,7 @@ class MyHandler(BaseHTTPRequestHandler):
 
     t = bbtext.Text(bbcs)
     t.setBoxed(True)
-    t.setFontCharacteristics("fonts\\OpenSans-Bold.ttf", 320)
+    t.setFontCharacteristics(os.path.join(os.path.dirname(__file__),'fonts','OpenSans-Bold.ttf'), 320)
     t.setString(time + " - " + temperature)
     t.gen()
     s += t.getDrawString((x, y, width, height))
@@ -612,6 +632,8 @@ class MyHandler(BaseHTTPRequestHandler):
       self.addWeather(clientId, dayOfWeek, dayOfMonth, time, temperature,
           minTemperature, maxTemperature, description, condition)
 
+      self.showMainMenu("Showed weather")
+
     elif self.path == "/updateWeather":
       clientId = self.args[CLIENT_ID][0]
       time = self.args["time"][0]
@@ -623,6 +645,10 @@ class MyHandler(BaseHTTPRequestHandler):
       text = self.args["TEXT"][0]
 
       self.enqueueText(clientId, text)
+    elif self.path.startswith("/status"):
+      clientId = self.args[CLIENT_ID][0]
+
+      self.getStatus(clientId)
     else:
       logging.debug("handleControlPlaneRequest - unknown command; path: %s",
         self.path)

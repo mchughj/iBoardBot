@@ -1,6 +1,7 @@
 
 import cv2
 import logging
+import os.path
 from constants import MAX_HEIGHT, MAX_WIDTH
 
 class Image(object):
@@ -17,8 +18,9 @@ class Image(object):
     return (self.width * self.scaleFactor, self.height * self.scaleFactor)
 
   def genFromFile(self, filename):
-    logging.info("genFromFile - loading file; filename: %s", filename)
-    image = cv2.imread(filename)
+    fullFilename = os.path.join(os.path.dirname(__file__),filename)
+    logging.info("genFromFile - loading file; fullFilename: %s", fullFilename)
+    image = cv2.imread(fullFilename)
 
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     gray = cv2.bilateralFilter(gray, 11, 17, 17)

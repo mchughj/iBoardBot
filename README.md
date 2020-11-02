@@ -62,11 +62,48 @@ for text.
 Use the generic 
 
 ```
-pip install requirements.txt
+pip install -r requirements.txt
 ```
 
 to install all current dependencies.
 
 All fonts included here are available via the SIL Open Font license.  More can 
 be found at [Font Squirrel](https://www.fontsquirrel.com/fonts/list/popular).
+
+## Installation in Linux systems
+
+I've moved the server process, along with the periodic weather client, over to a Raspberry PI and am running all server processes using systemd. 
+
+To 'install' and get the server and weather client working use
+
+```
+cd code/server/
+./install.sh
+cd ../weatherClient/
+./install.sh
+```
+
+From this point forward the services will be restarted automatically on startup of the Raspberry PI.  To see the logs use
+
+```
+sudo journalctl -u boardbot.service -f
+```
+
+or 
+
+```
+sudo journalctl -u weatherclient.service -f
+```
+
+## Display
+
+I've decided to host the server on a raspberry PI and put a 4" HDMI screen on top of the PI for a simple UI.   I purchased one from Miuzei and used these instructions to get the touch component working.
+
+```
+sudo rm -rf LCD-show
+git clone https://github.com/goodtft/LCD-show.git
+chmod -R 755 LCD-show
+cd LCD-show/
+sudo ./MPI4008-show
+```
 
