@@ -262,9 +262,10 @@ class MyHandler(BaseHTTPRequestHandler):
   def getStatus(self, clientId):
     logging.info("getStatus")
     self.send_response(200)
-    self.send_header('Content-type', 'text/json')
+    self.send_header('Content-type', 'application/json')
+    self.end_headers()
 
-    c = self.getOrMakeClient(clientId)
+    c = self.clientManager.getOrMakeClient(clientId)
 
     data = { 
         "clientId": clientId,

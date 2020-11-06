@@ -15,6 +15,9 @@ import threading
 import time
 import urllib.parse
 
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from functools import partial
+
 WEATHER_API = "http://api.openweathermap.org/"
 FULL_WEATHER = "data/2.5/weather/"
 FORECAST_WEATHER = "data/2.5/forecast/"
@@ -286,106 +289,6 @@ class MyHandler(BaseHTTPRequestHandler):
   def sendText(self, s):
     self.wfile.write(bytes(s,"utf-8"))
 
-  def showInfo(self):
-    logging.info("showInfo")
-
-    self.send_response(200)
-    self.send_header('Content-type', 'text/html')
-    self.end_headers()
-
-    self.sendText("<html>")
-    self.sendText("<head>")
-    self.sendText("</head>")
-
-    self.sendText("<h1>iBoardBoy Server</h1>")
-    self.sendText("Add image to be displayed")
-    self.sendText("<br><br>")
-    self.sendText("<form method=\"get\" action=\"addImage\">")
-    self.sendText("ClientId: <input size=\"127\" type=\"text\" name=\"ID_IWBB\" value=\"{}\"></BR>".format(clientId))
-    self.sendText("Image Filename: <input size=\"127\" type=\"text\" name=\"filename\"></BR>")
-    self.sendText("Scaling Factor: <input size=\"127\" type=\"text\" value=\"0\" name=\"scaleFactor\"></BR>")
-    self.sendText("x: <input size=\"127\" type=\"text\" value=\"0\" name=\"x\"></BR>")
-    self.sendText("y: <input size=\"127\" type=\"text\" value=\"0\" name=\"y\"></BR>")
-    self.sendText("<input type=\"submit\" value=\"Submit\">")
-    self.sendText("</form>")
-    self.sendText("</html>")
-
-  def getStatus(self, clientId):
-    logging.info("getStatus")
-    self.send_response(200)
-    self.send_header('Content-type', 'text/json')
-
-    c = self.getOrMakeClient(clientId)
-
-    data = { 
-        "clientId": clientId,
-        "createdMs": c.createdMs,
-        "lastAccessMs": c.lastAccessMs,
-        "queueSize": c.getQueueSize(),
-        }
-
-    self.sendText(json.dumps(data))
-
-  def showMainMenu(self, message = None):
-    logging.info("showMainMenu")
-    self.send_response(200)
-    self.send_header('Content-type', 'text/html')
-    self.end_headers()
-    self.sendText("<html>")
-    self.sendText("<head>")
-    self.sendText("<style>")
-    self.sendText("table, th, td {")
-    self.sendText("  border: 1px solid black;")
-    self.sendText("  border-collapse: collapse;")
-    self.sendText("}")
-    self.sendText("</style>")
-    self.sendText("</head>")
-    self.sendText("<h1>iBoardBot Server</h1>")
-    self.sendText("<br>")
-    if message:
-      self.sendText("<font color=\"red\">(")
-      self.sendText(message)
-      self.sendText("</font>)</hr></br>")
-
-    self.sendText("<br>")
-    self.sendText("Clients<br>")
-    self.sendText("<table style=\"width:100%\">")
-    self.sendText("<tr><th>ID</th><th>Queue Size</th><th>Actions</th></tr>")
-    clientIds = self.clientManager.getClientIds()
-    for c in clientIds:
-      self.sendText("<tr><td>")
-      self.sendText(c)
-      self.sendText("</td><td>")
-      self.sendText(str(self.clientManager.getClient(c).getQueueSize() ))
-      self.sendText("</td><td>")
-      urlEncodedArgs = urllib.parse.urlencode({CLIENT_ID:c, "size":0 })
-      self.sendText("[")
-      self.sendText("<a href=\"/addMockDrawing?{args}\">Drawing</a>".format(args=urlEncodedArgs))
-      self.sendText("|")
-      urlEncodedArgs = urllib.parse.urlencode({CLIENT_ID:c, "size":1 })
-      self.sendText("<a href=\"/addMockDrawing?{args}\">Big Drawing</a>".format(args=urlEncodedArgs))
-      self.sendText("|")
-      urlEncodedArgs = urllib.parse.urlencode({CLIENT_ID:c})
-      self.sendText("<a href=\"/addImage?{args}\">Image</a>".format(args=urlEncodedArgs))
-      self.sendText("|")
-      urlEncodedArgs = urllib.parse.urlencode({CLIENT_ID:c})
-      self.sendText("<a href=\"/addText?{args}\">Text</a>".format(args=urlEncodedArgs))
-      self.sendText("|")
-      urlEncodedArgs = urllib.parse.urlencode({CLIENT_ID:c})
-      self.sendText("<a href=\"/clearQueue?{args}\">Clear Queue</a>".format(args=urlEncodedArgs))
-      self.sendText("|")
-      urlEncodedArgs = urllib.parse.urlencode({CLIENT_ID:c})
-      self.sendText("<a href=\"/erase?{args}\">Erase</a>".format(args=urlEncodedArgs))
-      self.sendText("|")
-      urlEncodedArgs = urllib.parse.urlencode({CLIENT_ID:c, "x1":1200, "y1":
-        800, "x2": 1300, "y2": 950, "finalSweep": 1})
-      self.sendText("<a href=\"/erase?{args}\">Erase Middle</a>".format(args=urlEncodedArgs))
-      self.sendText("]")
-      self.sendText("</td>")
-      self.sendText("</tr>")
-    self.sendText("</table>")
-    self.sendText("</html>")
-
   def do_GET(self):
     logging.debug("do_GET - received a GET request; path: %s", self.path)
 
@@ -409,7 +312,8 @@ class MyHandler(BaseHTTPRequestHandler):
   def getStatus(self):
     logging.info("getStatus")
     self.send_response(200)
-    self.send_header('Content-type', 'text/json')
+    self.send_header('Content-type', 'application/json')
+    self.end_headers()
 
     data = { 
         "currentDay": self.weatherManager.currentDay,
@@ -418,7 +322,10 @@ class MyHandler(BaseHTTPRequestHandler):
         "lastFullRefresh": self.weatherManager.lastFullRefresh,
         "priorHour": self.weatherManager.priorHour,
         }
-    self.sendText(json.dumps(data))
+    result = json.dumps(data)
+    logging.info("Returning result: {r}".format(r=result))
+    self.sendText(result)
+    logging.info("Done")
 
 
 def main():
@@ -435,7 +342,7 @@ def main():
     try:
       handler = partial(MyHandler, weatherManager)
       server = ThreadingHTTPServer(('', config.localPort), handler)
-      logging.info('Starting httpserver...')
+      logging.info('Starting httpserver on port {port}...'.format(port=config.localPort))
       server.serve_forever()
     except KeyboardInterrupt:
       logging.info('^C received, shutting down server')
