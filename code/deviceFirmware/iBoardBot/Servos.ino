@@ -63,6 +63,8 @@ ISR(TIMER4_COMPA_vect)
 
 void disableServo1()
 {
+  Serial.println(F("  Disabling servo 1"));
+
   while (TCNT4<0xFF);   // Wait for sync...
   CLR(TCCR4A,COM4B1);
   servo1_ready=false;
@@ -70,6 +72,8 @@ void disableServo1()
 
 void disableServo2()
 {
+  Serial.println(F("  Disabling servo 2"));
+
   while (TCNT4<0xFF);   // Wait for sync...
   TIMSK4 = 0;
   CLR(TCCR4A,COM4A1);
@@ -79,6 +83,8 @@ void disableServo2()
 
 void enableServo1()
 {
+  Serial.println(F("  Enabling servo 1"));
+
   while (TCNT4<0xFF);   // Wait for sync...
   SET(TCCR4A,COM4B1);
   servo1_ready=true;
@@ -86,6 +92,8 @@ void enableServo1()
 
 void enableServo2()
 {
+  Serial.println(F("  Enabling servo 2"));
+
   while (TCNT4<0xFF);   // Wait for sync...
   TIMSK4 = (1 << TOIE4) | (1 << OCIE4A);
   SET(TCCR4A,COM4A1);
@@ -93,28 +101,12 @@ void enableServo2()
   servo2_ready=true;
 }
 
-/*
-void stopServo()
-{
-  while (TCNT4<0xFF);   // Wait for sync...
-  CLR(PORTD,1);
-  TCCR4A = 0;
-  TCCR4B = 0;
-  TCCR4C = 0;
-  TCCR4D = 0;
-  TCCR4E = 0;
-  TIMSK4 = 0;
-  // Reset timer
-  TC4H = 0;
-  TCNT4 = 0;
-  servo1_ready=false;
-  servo2_ready=false;
-}
-*/
 
 // move servo1 on OC4B (pin10)
 void moveServo1(int pwm)
 {
+  Serial.print(F("  Moving servo 1: "));
+  Serial.println(pwm);
   pwm = constrain(pwm, SERVO_MIN_PULSEWIDTH, SERVO_MAX_PULSEWIDTH) >> 3; // Check max values and Resolution: 8us
   // 11 bits => 3 MSB bits on TC4H, LSB bits on OCR4B
   TC4H = pwm >> 8;
@@ -124,6 +116,9 @@ void moveServo1(int pwm)
 // move servo2 on OC4A (pin13)
 void moveServo2(int pwm)
 {
+  Serial.print(F("  Moving servo 2: "));
+  Serial.println(pwm);
+
   pwm = constrain(pwm, SERVO_MIN_PULSEWIDTH, SERVO_MAX_PULSEWIDTH) >> 3; // Check max values and Resolution: 8us
   // 11 bits => 3 MSB bits on TC4H, LSB bits on OCR4A
   TC4H = pwm >> 8;

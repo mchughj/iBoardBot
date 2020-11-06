@@ -362,7 +362,10 @@ class MyHandler(BaseHTTPRequestHandler):
 
   def erase(self, clientId):
     c = self.clientManager.getOrMakeClient(clientId)
+    logging.info("erase - received a request; clientId: %s, queue size: %d", clientId,
+        c.getQueueSize())
     c.addNewDrawing(bbcs.eraseAll())
+    logging.info("erase - done enqueueing work; queue size: %d", c.getQueueSize())
 
   def erasePortion(self, clientId, x1, y1, x2, y2, finalSweep):
     if not x1 < x2:

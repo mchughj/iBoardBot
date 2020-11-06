@@ -57,6 +57,9 @@ class Bbcs(object):
   def eraserDown(self):
     return self._formPacket(4005, 0)
 
+  def eraserDownNoPause(self):
+    return self._formPacket(4007, 0)
+
   def eraserUp(self):
     # There is no explicit eraser up command in the firmware since there are 
     # only three states: 
@@ -67,14 +70,16 @@ class Bbcs(object):
     return self.liftPen()
 
   def eraseAll(self):
-    result  = self.liftPen()
-    result += self.eraserDown()
-    for y in range(0, 1200, 100):
+    result = self.eraserDown()
+    topY = 1200
+    # Jason :: If you ever want to test the erase functionality without erasing everything.
+    # topY = 200
+    for y in range(0, topY, 100):
       result += self.moveTo(0, y)
       result += self.moveTo(3580, y)
       result += self.moveTo(0, y)
 
-    for y in range(1050, 0, -100):
+    for y in range(topY-50, 0, -100):
       result += self.moveTo(0, y)
       result += self.moveTo(3580, y)
       result += self.moveTo(0, y)
