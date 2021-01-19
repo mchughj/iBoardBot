@@ -348,11 +348,20 @@ void loop()
               enableServo1();
               enableServo2();
             }
+
+#if DEBUG>2
+            Serial.println(F("startDrawing command - noEraser executing"));
+#endif
             // Pen lift
-            moveServo1(SERVO1_PAINT);
             moveServo2(SERVO2_LIFT);
+
+            // Jason :: TODO: Trying to get rid of the dot!
+            // moveServo1(SERVO1_NOERASER);
+            moveServo1(SERVO1_ERASER);
+
             servo_counter++;
             if (servo_counter > 100) {
+							Serial.println(F("done waiting for servos"));
               digitalWrite(4, LOW); // Enable motors...
               // Default move speed
               max_speed_x = MAX_SPEED_X;
@@ -365,7 +374,9 @@ void loop()
             }
           }
           else if (code1 == 4002) { // END DRAWING
-            Serial.print(F(" !STOP DRAW time:"));
+            Serial.print(F(" !STOP DRAW; erase_mode: " ));
+            Serial.print(erase_mode);
+            Serial.print(F(", time: "));
             Serial.println(millis() - draw_init_time);
             // Pen lift
             if (!servo1_ready) {
@@ -404,16 +415,20 @@ void loop()
             if (!servo2_ready) {
               enableServo2();
             }
-            moveServo1(SERVO1_PAINT);
+#if DEBUG>2
+            Serial.println(F("penLift command - noEraser executing"));
+#endif
             moveServo2(SERVO2_LIFT);
+            moveServo1(SERVO1_NOERASER);
             servo_counter++;
             if (servo_counter > 90) {
+							Serial.println(F("done waiting for servos"));
               erase_mode = 0;
               commands_index++;
               show_command = true;
               max_speed_x = MAX_SPEED_X;
               max_speed_y = MAX_SPEED_Y;
-              Serial.println(F(" SNP"));
+              Serial.println(F("  Pen lift, no eraser"));
               timeout_counter = 0;
               servo_counter = 0;
               disableServo2();
@@ -427,11 +442,16 @@ void loop()
             if (!servo2_ready) {
               enableServo2();
             }
-            moveServo1(SERVO1_PAINT);
+ 
+#if DEBUG>2
+            Serial.println(F("penDown command - no eraser executing"));
+#endif
+            moveServo1(SERVO1_NOERASER);
             moveServo2(SERVO2_PAINT);
             servo_counter++;
             //Serial.println(servo_pos);
             if (servo_counter > 180) {
+							Serial.println(F("done waiting for servos"));
               servo_pos2 = SERVO2_PAINT;
               erase_mode = 0;
               commands_index++;
@@ -454,14 +474,17 @@ void loop()
             }
             // Make position correction for eraser
             setPosition_mm10(last_move_x + ERASER_OFFSET_X * 10, last_move_y + ERASER_OFFSET_Y * 10);
+#if DEBUG>2
+            Serial.println(F("eraser command - eraser executing"));
+#endif
             moveServo1(SERVO1_ERASER);
             moveServo2(SERVO2_PAINT);
             servo_counter++;
-            //moveServo2(SERVO2_PAINT);
-            //Serial.println(servo_pos);
             if (servo_counter > 350) {
+							Serial.println(F("done waiting for servos"));
               servo_pos1 = SERVO1_ERASER;
               erase_mode = 1;
+
               commands_index++;
               show_command = true;
               max_speed_x = SPEED_ERASER_X;
@@ -472,6 +495,24 @@ void loop()
               disableServo1();
               disableServo2();
             }
+          }
+          // Eraser down but no pause
+          else if (code1 == 4007) {
+            Serial.println(F("  Eraser down but no pause"));
+            if (!servo1_ready) {
+              enableServo1();
+            }
+            if (!servo2_ready) {
+              enableServo2();
+            }
+            moveServo1(SERVO1_ERASER);
+            moveServo2(SERVO2_PAINT);
+            commands_index++;
+            show_command = true;
+            max_speed_x = SPEED_ERASER_X;
+            max_speed_y = SPEED_ERASER_Y;
+            timeout_counter = 0;
+            servo_counter = 0;
           }
           // Wait command
           else if (code1 == 4006) {
@@ -664,14 +705,15 @@ void loop()
         }
         else {
           Network_errors = 0;
-          Serial.print(F("Msize:"));
-          Serial.println(message_size);
-          Serial.print(F("Processing packet...lines:"));
+          Serial.print(F("main - got message; size: "));
+          Serial.print(message_size);
           commands_lines = message_size / 3;
+          Serial.print(F(", commands: "));
           Serial.println(commands_lines);
           commands_index = 0;
-          if (message_size == MAX_PACKET_SIZE)
-            Serial.println(F("MORE BLOCKS!"));
+          if (message_size == MAX_PACKET_SIZE) {
+            Serial.println(F("main - more blocks expected;"));
+          }
           draw_task = true;
           new_packet = true;
           digitalWrite(4, LOW); // Enable motors...

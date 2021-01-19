@@ -20,6 +20,8 @@ import bbtext
 import bbfilledtext
 import cv2
 
+import json
+
 from constants import MAX_HEIGHT, MAX_WIDTH
 
 logging.basicConfig(level=logging.INFO, format='(%(threadName)-10s) %(message)s')
@@ -257,6 +259,22 @@ class MyHandler(BaseHTTPRequestHandler):
     self.sendText("</form>")
     self.sendText("</html>")
 
+  def getStatus(self, clientId):
+    logging.info("getStatus")
+    self.send_response(200)
+    self.send_header('Content-type', 'application/json')
+    self.end_headers()
+
+    c = self.clientManager.getOrMakeClient(clientId)
+
+    data = { 
+        "clientId": clientId,
+        "createdMs": c.createdMs,
+        "lastAccessMs": c.lastAccessMs,
+        "queueSize": c.getQueueSize(),
+        }
+
+    self.sendText(json.dumps(data))
 
   def showMainMenu(self, message = None):
     logging.info("showMainMenu")
@@ -344,7 +362,10 @@ class MyHandler(BaseHTTPRequestHandler):
 
   def erase(self, clientId):
     c = self.clientManager.getOrMakeClient(clientId)
+    logging.info("erase - received a request; clientId: %s, queue size: %d", clientId,
+        c.getQueueSize())
     c.addNewDrawing(bbcs.eraseAll())
+    logging.info("erase - done enqueueing work; queue size: %d", c.getQueueSize())
 
   def erasePortion(self, clientId, x1, y1, x2, y2, finalSweep):
     if not x1 < x2:
@@ -625,6 +646,10 @@ class MyHandler(BaseHTTPRequestHandler):
       text = self.args["TEXT"][0]
 
       self.enqueueText(clientId, text)
+    elif self.path.startswith("/status"):
+      clientId = self.args[CLIENT_ID][0]
+
+      self.getStatus(clientId)
     else:
       logging.debug("handleControlPlaneRequest - unknown command; path: %s",
         self.path)
