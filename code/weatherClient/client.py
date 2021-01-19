@@ -304,7 +304,9 @@ class MyHandler(BaseHTTPRequestHandler):
     elif self.path == "/favicon.ico":
       self.send_error(404)
     elif self.path == "/doFull":
+      logging.info("Received a request to do a full refresh of the weather")
       self.weatherManager.fullRefresh()
+      self.getStatus()
     else:
       logging.debug("do_GET - unknown command; path: %s", self.path)
       self.send_error(404)
