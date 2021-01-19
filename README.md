@@ -95,6 +95,12 @@ or
 sudo journalctl -u weatherclient.service -f
 ```
 
+If you want to restart the service process for the boardbot then use:
+
+```
+sudo systemctl restart boardbot.service
+```
+
 ## Display
 
 I've decided to host the server on a raspberry PI and put a 4" HDMI screen on top of the PI for a simple UI.   I purchased one from Miuzei and used these instructions to get the touch component working.
