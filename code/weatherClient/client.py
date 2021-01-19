@@ -64,10 +64,10 @@ parser.add_argument('--weatherAPIKey',
         help='The weather API Key to use',
         required=True)
 
-parser.add_argument('--sleepSeconds', 
-        type=int, 
-        help='Number of seconds to sleep before waking up and checking for forward progress', 
-        default = 300)
+parser.add_argument('--immediate', 
+        help='Run once immediately and then according to the schedule',
+        default = False, 
+        action = "store_true")
 
 config = parser.parse_args()
 
@@ -88,36 +88,70 @@ class WeatherManager(object):
     self.trackDayChanges()
     self.partialRefresh()
 
+  def _getSecondsUntilHour(self, hour):
+    """
+    Given a desired hour - either on this day or in the next depending on what the current
+    time is - calculate the required seconds to sleep to hit that time.
+    """
+    nowTime = time.localtime()
+
+    # Start with seconds.  Determine the number of seconds remaining in this current minute.
+    secs = 60 - nowTime[5]
+
+    # Next determine the number of minutes that I have to sleep to move from this current 
+    # hour to the next.  Note that we have already fast forwarded through the current minute
+    # by adding in seconds so we offset the nowTime minutes by 1.  
+    secs += ((60 - nowTime[4] - 1) * 60)
+
+    # Finally the hour keeping in mind that the nowTime has already advanced by 1 hour.  Note that
+    # the provided hour could be less than the current hour which could make this a very large
+    # negative result.  
+    secs += ((hour - nowTime[3] - 1) * 3600)
+    if secs < 0:
+      secs += 86400
+
+    return secs
+
+  def _findAllSleepTimes(self):
+    result = []
+    for h in config.hours:
+      result.append((h, self._getSecondsUntilHour(h)))
+    return result
+
+
+  def determineSleepTime(self):
+    """
+    Returns a tuple of (hour, numberOfSecondsToSleep) that is the correct amount of 
+    sleep until the next wake up time found in the config.hours.
+    """
+    results = self._findAllSleepTimes()
+    logging.info("determineSleepTime - all times as (hour, secondsToSleep): %s", str(results))
+    return min(results, key=lambda x: x[1])
+
+
   def _runForever(self):
+    if self.runImmediately:
+        self.fullRefresh()
+
     while True:
       t = time.time()
       self.trackDayChanges()
 
-      if self.shouldDoFullRefresh(config.hours, t):
-        self.lastFullRefresh = t
-        self.fullRefresh()
+      (nextReportHour, sleepSeconds) = self.determineSleepTime()
 
-      logging.info("main - going to Sleep; secondsToSleep: %d", config.sleepSeconds)
-      time.sleep(config.sleepSeconds)
+      logging.info("_runForever - going to Sleep; nextReportHour: %d, secondsToSleep: %d", 
+          nextReportHour, sleepSeconds)
 
-  def run(self):
+      time.sleep(sleepSeconds)
+
+      logging.info("_runForever - going to do full refresh")
+      self.lastFullRefresh = t
+      self.fullRefresh()
+
+  def run(self, runImmediately):
+    self.runImmediately = runImmediately
     t1 = threading.Thread(target=self._runForever, daemon=True)
     t1.start()
-
-  def shouldDoFullRefresh(self, hours, t):
-    d = datetime.datetime.fromtimestamp(time.time())
-    if d.hour != self.priorHour:
-      self.priorHour = d.hour
-      # The hour has changed so presumably I am somewhere near the top of the hour
-      # Look to see if this hour is one in which I should do a full refresh.
-      if d.hour in hours:
-        logging.info("shouldDoFullRefresh - hour has changed and in list; hour: %d, hours: %s",
-            d.hour, hours)
-        return True
-      else:
-        logging.info("shouldDoFullRefresh - hour has changed but not in list; hour: %d, hours: %s",
-            d.hour, hours)
-    return False
 
   def partialRefresh(self):
     data = self.makeWeatherRequest()
@@ -143,6 +177,8 @@ class WeatherManager(object):
 
   def fullRefresh(self):
     data = None
+    self.lastFullRefresh = time.time()
+
     try:
       data = self.makeWeatherRequest()
       (tempMin, tempMax) = self.getTemperatureForecast()
@@ -153,7 +189,6 @@ class WeatherManager(object):
     currentTemp = data["main"]["temp"]
     condition = int(data["weather"][0]["id"])
     description = data["weather"][0]["description"]
-    time = data["dt"]
 
     tempMin = min(tempMin, currentTemp)
     tempMax = max(tempMax, currentTemp)
@@ -233,7 +268,7 @@ class WeatherManager(object):
     r = requests.get(url = WEATHER_API + FORECAST_WEATHER, params = params) 
     data = r.json()
 
-    logging.debug("getTemperatureForecast - fetched the forecast;")
+    logging.info("getTemperatureForecast - fetched the forecast; result: %s", str(data))
 
     for i in range(12):
       itemTime = data["list"][i]["dt"]
@@ -315,30 +350,33 @@ class MyHandler(BaseHTTPRequestHandler):
     self.send_header('Content-type', 'application/json')
     self.end_headers()
 
+    (hourToWakeUp, sleepSeconds) = self.weatherManager.determineSleepTime()
+
     data = { 
         "currentDay": self.weatherManager.currentDay,
         "dayLow": self.weatherManager.dayLow,
         "dayHigh": self.weatherManager.dayHigh,
         "lastFullRefresh": self.weatherManager.lastFullRefresh,
         "priorHour": self.weatherManager.priorHour,
+        "nextHourToWakeUp": hourToWakeUp,
+        "sleepSeconds": sleepSeconds,
         }
     result = json.dumps(data)
     logging.info("Returning result: {r}".format(r=result))
     self.sendText(result)
-    logging.info("Done")
 
 
 def main():
   weatherManager = WeatherManager()
   if config.onceFull:
-    weather.runOnceFull()
+    weatherManager.runOnceFull()
 
   if config.oncePartial:
-    weather.runOncePartial()
+    weatherManager.runOncePartial()
 
   if not (config.onceFull or config.oncePartial):
     # Otherwise let weatherManager run forever and also start up the http server.
-    weatherManager.run()
+    weatherManager.run(config.immediate)
     try:
       handler = partial(MyHandler, weatherManager)
       server = ThreadingHTTPServer(('', config.localPort), handler)
