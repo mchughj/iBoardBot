@@ -1,0 +1,7 @@
+kivy_deps.sdl2==0.1.* 
+kivy_deps.glew==0.1.*
+kivy
+kivy_examples
+pypiwin32 
+pygments 
+docutils 
