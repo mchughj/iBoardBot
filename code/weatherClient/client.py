@@ -13,6 +13,7 @@ import pprint
 import requests
 import threading
 import time
+import socket
 import urllib.parse
 
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -70,6 +71,19 @@ parser.add_argument('--immediate',
         action = "store_true")
 
 config = parser.parse_args()
+
+# Return the primary IP address for this box.  
+def getIP():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        # doesn't even have to be reachable
+        s.connect(('10.255.255.255', 1))
+        IP = s.getsockname()[0]
+    except Exception:
+        IP = '127.0.0.1'
+    finally:
+        s.close()
+    return IP
 
 
 class WeatherManager(object):
@@ -178,6 +192,7 @@ class WeatherManager(object):
   def fullRefresh(self):
     data = None
     self.lastFullRefresh = time.time()
+    self.priorHour = time.localtime()[3]
 
     try:
       data = self.makeWeatherRequest()
@@ -335,6 +350,8 @@ class MyHandler(BaseHTTPRequestHandler):
         self.path, self.args)
 
     if self.path == "/":
+      self.showMainMenu()
+    elif self.path == "/status":
       self.getStatus()
     elif self.path == "/favicon.ico":
       self.send_error(404)
@@ -345,6 +362,43 @@ class MyHandler(BaseHTTPRequestHandler):
     else:
       logging.debug("do_GET - unknown command; path: %s", self.path)
       self.send_error(404)
+
+  def showMainMenu(self):
+    logging.info("showMainMenu")
+    self.send_response(200)
+    self.send_header('Content-type', 'text/html')
+    self.end_headers()
+    self.sendText("<html>")
+    self.sendText("<head>")
+    self.sendText("<style>")
+    self.sendText("table, th, td {")
+    self.sendText("  border: 1px solid black;")
+    self.sendText("  border-collapse: collapse;")
+    self.sendText("}")
+    self.sendText("</style>")
+    self.sendText("</head>")
+    self.sendText("<h1>iBoardBot Weather Server</h1>")
+    self.sendText("<br>")
+    self.sendText("Main iBoardBot server can be found <a href=\"http://{IP}/\">here</a>.<BR>".format(IP=getIP()))
+    self.sendText("<br>")
+
+    self.sendText("Do <a href=\"/doFull\">full Update</a> now.<BR>")
+    self.sendText("<br>")
+    
+    (hourToWakeUp, sleepSeconds) = self.weatherManager.determineSleepTime()
+
+    self.sendText("<table style=\"width:50%\">")
+    self.sendText("<tr><th>Field</th><th>Value</th></tr>")
+    self.sendText("<tr><td>Current Day</td><td>{v}</td></tr>".format(v=self.weatherManager.currentDay))
+    self.sendText("<tr><td>Day Low</td><td>{v}</td></tr>".format(v=self.weatherManager.dayLow))
+    self.sendText("<tr><td>Day High</td><td>{v}</td></tr>".format(v=self.weatherManager.dayHigh))
+    self.sendText("<tr><td>Last Full Refresh</td><td>{v}</td></tr>".format(v=self.weatherManager.lastFullRefresh))
+    self.sendText("<tr><td>Prior Hour</td><td>{v}</td></tr>".format(v=self.weatherManager.priorHour))
+    self.sendText("<tr><td>Next Hour</td><td>{v}</td></tr>".format(v=hourToWakeUp))
+    self.sendText("<tr><td>Sleep Seconds</td><td>{v}</td></tr>".format(v=sleepSeconds))
+    self.sendText("</table>")
+    self.sendText("</html>")
+
 
   def getStatus(self):
     logging.info("getStatus")

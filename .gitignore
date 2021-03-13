@@ -1,3 +1,8 @@
 __pycache__
 runme.bat
 ***/keys
+***/showLogs.sh
+***/restartService.sh
+***/stopService.sh
+***/*.swp
+***/*.swo

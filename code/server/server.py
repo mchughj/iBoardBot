@@ -19,6 +19,7 @@ import freetype
 import bbtext
 import bbfilledtext
 import cv2
+import socket
 
 import json
 
@@ -40,6 +41,20 @@ bbcs = Bbcs()
 
 DEVICE_URL_PREFIX = "/ibb-device/"
 CLIENT_ID = "ID_IWBB"
+
+# Return the primary IP address for this box.  
+def getIP():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        # doesn't even have to be reachable
+        s.connect(('10.255.255.255', 1))
+        IP = s.getsockname()[0]
+    except Exception:
+        IP = '127.0.0.1'
+    finally:
+        s.close()
+    return IP
+
 
 def mockDrawData(size = 0):
   if size == 0:
@@ -297,7 +312,9 @@ class MyHandler(BaseHTTPRequestHandler):
       self.sendText(message)
       self.sendText("</font>)</hr></br>")
 
+    self.sendText("Weather server can be found <a href=\"http://{IP}:8080/\">here</a>.<BR>".format(IP=getIP()))
     self.sendText("<br>")
+
     self.sendText("Clients<br>")
     self.sendText("<table style=\"width:100%\">")
     self.sendText("<tr><th>ID</th><th>Queue Size</th><th>Actions</th></tr>")
@@ -405,27 +422,6 @@ class MyHandler(BaseHTTPRequestHandler):
     c = self.clientManager.getOrMakeClient(clientId)
 
     s = ""
-    y = 800
-    x = 250
-    width = 700
-    height = 250
-    t = bbtext.Text(bbcs)
-    t.setFontCharacteristics(os.path.join(os.path.dirname(__file__),'fonts','Exo2-Bold.otf'), 256)
-    t.setString(dayOfWeek)
-    t.gen()
-    c.addNewDrawing(t.getDrawString((x, y, width, height)))
-
-    # Generate date component of the display
-    width = 700
-    height = 500
-    y = 140 + height
-    x = 275
-    
-    t = bbinversetextbox.InverseTextBox(bbcs, width, height)
-    t.setRoundedRectangle(True)
-    t.setString(dayOfMonth)
-    t.gen()
-    c.addNewDrawing(t.getDrawString(x, y))
 
     # Seperator for the date from the weather
     l = bbshape.VLine(bbcs)
@@ -436,6 +432,7 @@ class MyHandler(BaseHTTPRequestHandler):
     rhsX = 1275
     rhsFullWidth = 2175
 
+    # Current temperature
     width = rhsFullWidth
     height = 375
     x = rhsX
@@ -503,6 +500,28 @@ class MyHandler(BaseHTTPRequestHandler):
     x = rhsX + 50
     y = 490
     c.addNewDrawing(i.getDrawString(x, y))
+
+    y = 800
+    x = 250
+    width = 700
+    height = 250
+    t = bbtext.Text(bbcs)
+    t.setFontCharacteristics(os.path.join(os.path.dirname(__file__),'fonts','Exo2-Bold.otf'), 256)
+    t.setString(dayOfWeek)
+    t.gen()
+    c.addNewDrawing(t.getDrawString((x, y, width, height)))
+
+    # Generate date component of the display
+    width = 700
+    height = 500
+    y = 140 + height
+    x = 275
+    
+    t = bbinversetextbox.InverseTextBox(bbcs, width, height)
+    t.setRoundedRectangle(True)
+    t.setString(dayOfMonth)
+    t.gen()
+    c.addNewDrawing(t.getDrawString(x, y))
 
     self.send_response(200)
     self.send_header('Content-type', 'text/html')
