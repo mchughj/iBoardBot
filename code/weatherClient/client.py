@@ -144,13 +144,11 @@ class WeatherManager(object):
 
 
   def _runForever(self):
+    logging.info("_runForever - on enter; runImmediately: %s", self.runImmediately)
     if self.runImmediately:
         self.fullRefresh()
 
     while True:
-      t = time.time()
-      self.trackDayChanges()
-
       (nextReportHour, sleepSeconds) = self.determineSleepTime()
 
       logging.info("_runForever - going to Sleep; nextReportHour: %d, secondsToSleep: %d", 
@@ -159,6 +157,10 @@ class WeatherManager(object):
       time.sleep(sleepSeconds)
 
       logging.info("_runForever - going to do full refresh")
+
+      t = time.time()
+      self.trackDayChanges()
+
       self.lastFullRefresh = t
       self.fullRefresh()
 
