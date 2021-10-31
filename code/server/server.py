@@ -3,7 +3,15 @@
 import time
 import argparse
 
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler
+
+use_threaded_server = True
+try:
+    from http.server import ThreadingHTTPServer
+except:
+    print("Falling back to the standard HttpServer class")
+    use_threaded_server = False
+    from http.server import HTTPServer
 
 from functools import partial
 import logging
@@ -96,6 +104,7 @@ class Client(object):
     self.condition = threading.Condition()
     self.queue = []
     self.nextBlockNumber = 0
+    self.nextWeatherSlot = 0
 
   def recordAccess(self):
     self.numberOfAccesses += 1
@@ -191,6 +200,12 @@ class Client(object):
   def getQueueSize(self):
     with self.condition:
       return len(self.queue)
+
+  def getNextWeatherSlot(self):
+      return self.nextWeatherSlot
+
+  def setNextWeatherSlot(self, slot):
+      self.nextWeatherSlot = slot
 
 
 class ClientManager(object):
@@ -416,6 +431,190 @@ class MyHandler(BaseHTTPRequestHandler):
 
     c.addNewDrawing(i.getDrawString(x, y))
 
+
+  # addWeatherStartOfDay is a different type of weather view from the normal 'addWeather' mechanism.
+  # In this one at the start of the day a call to clear the board is made and then a call to 
+  # here is made.  This outlines the weather information available at the start of the day.
+  # As the day progresses then the additional datapoints, however many there are, are added to 
+  # the same board without clearing the screen.  
+  def addWeatherStartOfDay(self, clientId, dayOfWeek, dayOfMonth, time, temperature,
+      minTemperature, maxTemperature, description, conditionString):
+    logging.info("addWeatherStartOfDay - received the request to add the weather")
+
+    c = self.clientManager.getOrMakeClient(clientId)
+    s = ""
+
+    # The display is setup in three regions
+    #
+    # +----------------------------------------------------------------------------------+
+    # |             |                     |    Time 1 - Temperature  X                   |
+    # |    Weds     |     Min/Max         |    Time 2 - Temperature  Y                   |
+    # |             |                     |                                              |
+    # |    DAY      |     Description     |                                              |
+    # |  Of MONTH   |                     |                                              |
+    # |             |     Icon            |                                              |
+    # |             |                     |                                              |
+    # +----------------------------------------------------------------------------------+
+    #        middleColumnLeft     middleColumnRight
+    middleColumnLeft = 1000
+    middleColumnRight = 1700
+    rightColumnWidth = MAX_WIDTH - middleColumnRight 
+
+    # ----------------------------------------------
+    # Draw the vertical lines separating the regions
+    # ----------------------------------------------
+    l = bbshape.VLine(bbcs)
+    l.setHeight(900)
+    l.gen()
+    s = l.getDrawString(offsetX=middleColumnLeft, offsetY=100) + \
+        l.getDrawString(offsetX=middleColumnRight, offsetY=100)
+    c.addNewDrawing(s)
+    s = ""
+
+    # ------------------
+    # Draw Left region
+    # ------------------
+
+    # Draw the day of the week (e.g., "Wed").
+    y = 800
+    x = 200
+    width = 700
+    height = 250
+    t = bbtext.Text(bbcs)
+    t.setFontCharacteristics(os.path.join(os.path.dirname(__file__),'fonts','Exo2-Bold.otf'), 256)
+    t.setString(dayOfWeek)
+    t.gen()
+    c.addNewDrawing(t.getDrawString((x, y, width, height)))
+
+    # Generate date component of the display
+    width = 700
+    height = 500
+    y = 140 + height
+    x = 225
+    
+    t = bbinversetextbox.InverseTextBox(bbcs, width, height)
+    t.setRoundedRectangle(True)
+    t.setString(dayOfMonth)
+    t.gen()
+    c.addNewDrawing(t.getDrawString(x, y))
+
+    # ------------------
+    # Draw middle region
+    # ------------------
+
+    middleColumnOffset = 40
+
+    # Draw the min/max temperature
+    width = 500
+    height = 225
+    x = middleColumnLeft + middleColumnOffset 
+    y = 900
+    t = bbtext.Text(bbcs)
+    t.setFontCharacteristics(os.path.join(os.path.dirname(__file__),'fonts','Exo2-Bold.otf'), 150)
+    t.setString(minTemperature + " / " + maxTemperature)
+    t.setBoxed(False)
+    t.gen()
+    c.addNewDrawing(t.getDrawString((x, y)))
+
+    # Draw the textual description
+    width = 500
+    height = 275
+    x = middleColumnLeft + middleColumnOffset
+    y = 575
+    t = bbtext.Text(bbcs)
+    t.setFontCharacteristics(os.path.join(os.path.dirname(__file__),'fonts','Exo2-Bold.otf'), 164)
+    t.setString(description)
+    t.setBoxed(False)
+    t.gen()
+    c.addNewDrawing(t.getDrawString((x, y)))
+
+    # Draw the icon view
+    iconFile = None
+    if conditionString == "SUNNY":
+      iconFile = "imgs/sunny.png"
+    elif conditionString == "CLOUDY":
+      iconFile = "imgs/cloudy.png"
+    elif conditionString == "SNOW":
+      iconFile = "imgs/snow.png"
+    elif conditionString == "RAIN":
+      iconFile = "imgs/rain.png"
+    else:
+      logging.info("addWeatherStartOfDay - unknown condition string; conditionString: %s",
+          conditionString)
+      iconFile = "imgs/question.png"
+
+    i = bbimage.Image(bbcs)
+    i.setImageCharacteristics(2)
+    i.genFromFile(iconFile)
+    (w, h) = i.getDimensions()
+
+    x = middleColumnLeft + ((middleColumnRight - middleColumnLeft) / 2 ) - (w/2) - middleColumnOffset 
+    y = 490
+    c.addNewDrawing(i.getDrawString(x, y))
+
+    # Draw the right most part.
+    s = self.drawWeatherInfoSlotted(slot=0, width=rightColumnWidth, x=middleColumnRight, time = time, temperature = temperature, description = description)
+    c.addNewDrawing(s)
+    c.setNextWeatherSlot(1)
+
+    self.send_response(200)
+    self.send_header('Content-type', 'text/html')
+    self.end_headers()
+
+  def drawWeatherInfoSlotted(self, width, x, slot, time, temperature, description):
+    # Draw the time and the current temperature.
+    # We will be leaving room here on the display for additional
+    # datapoints.
+    height = 150
+    x = x + 25
+    y = 1000 - (slot * 175) 
+    t = bbfilledtext.FilledText(bbcs, width, height, False)
+    t.setBoxed(False)
+    t.setFontCharacteristics(cv2.FONT_HERSHEY_SIMPLEX, 4, 3)
+    t.setString(time + " - " + temperature)
+    t.setBoxed(False)
+    t.gen()
+    result = t.getDrawString(x, y)
+
+    # Add the little circle for the degrees
+    circle = bbshape.Circle(bbcs)
+    circle.setRadius(15)
+    circle.gen()
+    result += circle.getDrawString(
+        x + t.getTextLowerLeftX() + t.getDimensions()[0], 
+        (y - height) + (t.getDimensions()[1] + 75))
+
+    # Add the description
+    x = x + 25 + t.getDimensions()[0] + 25
+    t = bbfilledtext.FilledText(bbcs, width, height, False)
+    t.setBoxed(False)
+    t.setFontCharacteristics(cv2.FONT_HERSHEY_SIMPLEX, 4, 3)
+    t.setString(" - " + description)
+    t.setBoxed(False)
+    t.gen()
+    result += t.getDrawString(x, y)
+
+    return result
+
+  # addWeatherDatapoint will add a new datapoint to the existing weather display.
+  # This is purely addative and requires the first call to addWeatherStartOfDay to
+  # be called to establish the base view and the first datapoint.
+  def addWeatherDatapoint(self, clientId, time, temperature, description, conditionString):
+    logging.info("addWeatherDatapoint - received the request to add the next line to the weather display")
+
+    middleColumnRight = 1700
+    rightColumnWidth = MAX_WIDTH - middleColumnRight 
+
+    c = self.clientManager.getOrMakeClient(clientId) 
+    slot = c.getNextWeatherSlot()
+
+    c.addNewDrawing( self.drawWeatherInfoSlotted(slot=slot, width=rightColumnWidth, x=middleColumnRight, time=time, temperature=temperature, description = description))
+    c.setNextWeatherSlot(slot+1)
+
+    self.send_response(200)
+    self.send_header('Content-type', 'text/html')
+    self.end_headers()
+
   def addWeather(self, clientId, dayOfWeek, dayOfMonth, time, temperature,
       minTemperature, maxTemperature, description, conditionString):
     logging.info("addWeather - received the request to add the weather")
@@ -527,31 +726,6 @@ class MyHandler(BaseHTTPRequestHandler):
     self.send_header('Content-type', 'text/html')
     self.end_headers()
 
-  def updateWeather(self, clientId, time, temperature):
-    c = self.clientManager.getOrMakeClient(clientId)
-
-    rhsX = 1350
-    rhsFullWidth = 2100
-
-    width = rhsFullWidth
-    height = 325
-    x = rhsX
-    y = 625
-
-    s = bbcs.erasePortion(x, y, x+width, y+height, True)
-
-    t = bbtext.Text(bbcs)
-    t.setBoxed(True)
-    t.setFontCharacteristics(os.path.join(os.path.dirname(__file__),'fonts','OpenSans-Bold.ttf'), 320)
-    t.setString(time + " - " + temperature)
-    t.gen()
-    s += t.getDrawString((x, y, width, height))
-    c.addNewDrawing(s)
-
-    self.send_response(200)
-    self.send_header('Content-type', 'text/html')
-    self.end_headers()
-
   def addText(self, clientId, s, x, y, fontFace, size):
     c = self.clientManager.getOrMakeClient(clientId)
 
@@ -654,11 +828,31 @@ class MyHandler(BaseHTTPRequestHandler):
 
       self.showMainMenu("Showed weather")
 
-    elif self.path == "/updateWeather":
+    elif self.path == "/weatherStartOfDay":
+      clientId = self.args[CLIENT_ID][0]
+      dayOfWeek = self.args["dayOfWeek"][0]
+      dayOfMonth = self.args["dayOfMonth"][0]
+      time = self.args["time"][0]
+      temperature = self.args["temperature"][0]
+      minTemperature = self.args["minTemperature"][0]
+      maxTemperature = self.args["maxTemperature"][0]
+      description = self.args["description"][0]
+      condition = self.args["condition"][0]
+      self.addWeatherStartOfDay(clientId, dayOfWeek, dayOfMonth, time, temperature,
+          minTemperature, maxTemperature, description, condition)
+
+      self.showMainMenu("Showed weather start of day")
+
+    elif self.path == "/weatherDatapoint":
       clientId = self.args[CLIENT_ID][0]
       time = self.args["time"][0]
       temperature = self.args["temperature"][0]
-      self.updateWeather(clientId, time, temperature)
+      description = self.args["description"][0]
+      condition = self.args["condition"][0]
+      self.addWeatherDatapoint(clientId, time, temperature, description, condition)
+
+      self.showMainMenu("Showed weather datapoint")
+
 
     elif self.path.startswith("/puttext?"):
       clientId = self.args[CLIENT_ID][0]
@@ -726,7 +920,11 @@ def main():
   clientManager = ClientManager()
   try:
     handler = partial(MyHandler, clientManager)
-    server = ThreadingHTTPServer(('', config.port), handler)
+    if use_threaded_server:
+        server = ThreadingHTTPServer(('', config.port), handler)
+    else:
+        server = HTTPServer(('', config.port), handler)
+
     logging.info('Starting httpserver...')
     server.serve_forever()
   except KeyboardInterrupt:

@@ -4,10 +4,11 @@ import numpy as np
 import bbimage
 
 class FilledText(object):
-  def __init__(self, bbcs, width, height):
+  def __init__(self, bbcs, width, height, centered = True):
     self.bbcs = bbcs
     self.width = width
     self.height = height
+    self.centered = centered
     self.mat = np.zeros((
       height,
       width,
@@ -41,14 +42,18 @@ class FilledText(object):
     return self.textStartLowerLeftY
 
   def gen(self):
-    self.textWidth, self.textHeight = cv2.getTextSize(
+    (self.textWidth, self.textHeight), self.baseline = cv2.getTextSize(
             self.string, 
             self.font,
             self.fontScale, 
-            self.fontLineThickness)[0]
+            self.fontLineThickness)
 
-    self.textStartLowerLeftX = int((self.width - self.textWidth) / 2) 
-    self.textStartLowerLeftY = self.height - int((self.height - self.textHeight) / 2)
+    if self.centered:
+        self.textStartLowerLeftX = int((self.width - self.textWidth) / 2) 
+        self.textStartLowerLeftY = self.height - int((self.height - self.textHeight) / 2)
+    else:
+        self.textStartLowerLeftX = 0
+        self.textStartLowerLeftY = self.height - self.baseline 
 
     cv2.putText(self.mat, 
             self.string, 
@@ -81,7 +86,8 @@ class FilledText(object):
             0,
             int(self.fontLineThickness / 8))
 
-    cv2.rectangle(self.mat, (0,0), (self.width-1, self.height-1), 255, 1)
+    if self.isBoxed:
+        cv2.rectangle(self.mat, (0,0), (self.width-1, self.height-1), 255, 1)
 
     # cv2.imshow("Test",self.mat)
     # cv2.waitKey(0)

@@ -60,6 +60,11 @@ parser.add_argument('--hours',
         help='A list of hours for which, at the top of the hour, a full refresh will be executed.',
         default = [5, 10, 15])
 
+parser.add_argument('--doIncrementalDaily', 
+        help='Run and wake up according to the hours schedule, however, do an incremental daily view',
+        default = False, 
+        action = "store_true")
+
 parser.add_argument('--weatherAPIKey', 
         type=str, 
         help='The weather API Key to use',
@@ -142,6 +147,73 @@ class WeatherManager(object):
     logging.info("determineSleepTime - all times as (hour, secondsToSleep): %s", str(results))
     return min(results, key=lambda x: x[1])
 
+  def _addWeatherDatapoint(self):
+    data = None
+    self.lastFullRefresh = time.time()
+    self.priorHour = time.localtime()[3]
+
+    try:
+      data = self.makeWeatherRequest()
+      (tempMin, tempMax) = self.getTemperatureForecast()
+    except Exception as e:
+      logging.exception("error in getting weather or forecast")
+      return False
+
+    currentTemp = data["main"]["temp"]
+    condition = int(data["weather"][0]["id"])
+    description = data["weather"][0]["description"]
+
+    (hour, hourModifier, day, dayName) = self.getDateAndTimeInformation()
+    timeString = "{:02d} {}".format(hour, hourModifier)
+    dayString = "{:02d}".format(day)
+
+    # Condition codes:  https://openweathermap.org/weather-conditions
+    if condition == 800:
+      conditionString = "SUNNY"
+    elif condition > 800:
+      conditionString = "CLOUDY"
+    else:
+      generalCondition = int(condition / 100)
+
+      if generalCondition == 7:
+        conditionString = "CLOUDY"
+      elif generalCondition == 6:
+        conditionString = "SNOW"
+      elif generalCondition == 5:
+        conditionString = "RAIN"
+      elif generalCondition == 3:
+        conditionString = "RAIN"
+      else:
+        conditionString = "UNKNOWN"
+
+    logging.info("_addWeatherDatapoint - got information; timeString: %s, currentTemp: %s, description: %s, condition: %d, conditionString: %s", timeString, 
+        currentTemp, tempMin, tempMax, description, condition, conditionString)
+
+    try:
+      # Make the request to the boardBot server instance.  First clear the screen and then
+      # do the full weather update.
+      boardBotParams = {'ID_IWBB': CLIENT_ID }
+      boardBotParams = {
+          'ID_IWBB': CLIENT_ID,
+          'time': timeString,
+          'dayOfWeek': dayName,
+          'dayOfMonth': dayString,
+          'temperature': int(currentTemp),
+          'minTemperature': int(tempMin),
+          'maxTemperature': int(tempMax),
+          'condition': conditionString,
+          'description': description.upper()}
+      
+      logging.info("Making request to http://{url}:{port}/weatherDatapoint - params: {params}".format(
+          url=config.serverName, port=config.serverPort, params=pprint.pformat(boardBotParams)))
+      boardRequest = requests.get(
+          url = "http://{url}:{port}/weatherDatapoint".format(url=config.serverName, port=config.serverPort),
+          params = boardBotParams)
+      return boardRequest.ok
+    except Exception as e:
+      logging.exception("error in contacting boardbot;")
+      return False
+      pass
 
   def _runForever(self):
     logging.info("_runForever - on enter; runImmediately: %s", self.runImmediately)
@@ -156,13 +228,21 @@ class WeatherManager(object):
 
       time.sleep(sleepSeconds)
 
-      logging.info("_runForever - going to do full refresh")
-
-      t = time.time()
-      self.trackDayChanges()
-
-      self.lastFullRefresh = t
-      self.fullRefresh()
+      if config.doIncrementalDaily:
+        logging.info("_runForever - going to do incremental daily refresh")
+        t = time.time()
+        isNewDay = self.trackDayChanges()
+        if isNewDay:
+          logging.info("_runForever - incremental daily refresh is a new day!")
+          self.fullRefresh(resource="/weatherStartOfDay")
+        else:
+          self._addWeatherDatapoint()
+      else:
+        logging.info("_runForever - going to do full refresh")
+        t = time.time()
+        self.trackDayChanges()
+        self.lastFullRefresh = t
+        self.fullRefresh()
 
   def run(self, runImmediately):
     self.runImmediately = runImmediately
@@ -191,7 +271,7 @@ class WeatherManager(object):
         params = boardBotParams)
     return boardRequest.ok
 
-  def fullRefresh(self):
+  def fullRefresh(self, resource = "/weather"):
     data = None
     self.lastFullRefresh = time.time()
     self.priorHour = time.localtime()[3]
@@ -259,10 +339,10 @@ class WeatherManager(object):
           'condition': conditionString,
           'description': description.upper()}
       
-      logging.info("Making request to http://{url}:{port}/weather - params: {params}".format(
-          url=config.serverName, port=config.serverPort, params=pprint.pformat(boardBotParams)))
+      logging.info("Making request to http://{url}:{port}{resource} - params: {params}".format(
+          url=config.serverName, port=config.serverPort, resource=resource, params=pprint.pformat(boardBotParams)))
       boardRequest = requests.get(
-          url = "http://{url}:{port}/weather".format(url=config.serverName, port=config.serverPort),
+          url = "http://{url}:{port}{resource}".format(url=config.serverName, resource=resource, port=config.serverPort),
           params = boardBotParams)
       return boardRequest.ok
     except Exception as e:
@@ -277,6 +357,7 @@ class WeatherManager(object):
       # Reset the high and low day forcast information
       self.dayLow = 1000
       self.dayHigh = -1000
+      return True
     else:
       return False
 
