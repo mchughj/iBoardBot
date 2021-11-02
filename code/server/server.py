@@ -578,7 +578,7 @@ class MyHandler(BaseHTTPRequestHandler):
 
     logging.info( "drawWeatherInfoSlotted - going to draw text; x: {x}, y: {y}, slot: {slot}, height: {height}, time: {time}, temperature: {temp}, description: {d}".format(x=x, y=y, slot=slot, height=height, time=time, temp=temperature, d=description))
     t = bbtext.Text(bbcs)
-    t.setFontCharacteristics(os.path.join(os.path.dirname(__file__),'fonts','Exo2-Bold.otf'), 164)
+    t.setFontCharacteristics(os.path.join(os.path.dirname(__file__),'fonts','cnc_v.ttf'), 164)
     t.setString(time + " - " + temperature)
     t.setBoxed(False)
     t.gen()
@@ -598,7 +598,7 @@ class MyHandler(BaseHTTPRequestHandler):
     x = x + 25 + t.getTextDimensions()[0] + 25
     t = bbtext.Text(bbcs)
     t.setBoxed(False)
-    t.setFontCharacteristics(os.path.join(os.path.dirname(__file__),'fonts','Exo2-Bold.otf'), 164)
+    t.setFontCharacteristics(os.path.join(os.path.dirname(__file__),'fonts','cnc_v.ttf'), 164)
     t.setString(" - " + description)
     t.setBoxed(False)
     t.gen()
