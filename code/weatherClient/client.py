@@ -8,16 +8,28 @@ import argparse
 import calendar
 import datetime
 import json
-import logging
 import pprint
 import requests
 import threading
 import time
 import socket
 import urllib.parse
-
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import logging
 from functools import partial
+
+logging.basicConfig(level=logging.DEBUG, 
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+from http.server import BaseHTTPRequestHandler
+
+use_threaded_server = True
+try:
+    from http.server import ThreadingHTTPServer
+except:
+    logging.info("Falling back to the standard HttpServer class")
+    use_threaded_server = False
+    from http.server import HTTPServer
+
 
 WEATHER_API = "http://api.openweathermap.org/"
 FULL_WEATHER = "data/2.5/weather/"
@@ -219,6 +231,8 @@ class WeatherManager(object):
       return "GREY"
     if description.startswith("LIGHT RA"):
       return "LT RAIN"
+    if description.startswith("MODERATE RA"):
+      return "M RAIN"
     if description.startswith("RAIN"):
       return "RAIN"
     if description == "BROKEN CLOUDS":
@@ -464,8 +478,12 @@ class MyHandler(BaseHTTPRequestHandler):
     elif self.path == "/favicon.ico":
       self.send_error(404)
     elif self.path == "/doFull":
-      logging.info("Received a request to do a full refresh of the weather")
-      self.weatherManager.fullRefresh()
+      if config.doIncrementalDaily:
+        logging.info("Received a request to do a full refresh of the weather - doing incremental version - start of the day!")
+        self.weatherManager.fullRefresh(resource="/weatherStartOfDay")
+      else:   
+        logging.info("Received a request to do a full refresh of the weather - doing full")
+        self.weatherManager.fullRefresh()
       self.getStatus()
     elif self.path == "/doWeatherDatapoint":
       logging.info("Received a request to add a weather datapoint")
@@ -548,7 +566,11 @@ def main():
     weatherManager.run(config.immediate)
     try:
       handler = partial(MyHandler, weatherManager)
-      server = ThreadingHTTPServer(('', config.localPort), handler)
+      if use_threaded_server:
+          server = ThreadingHTTPServer(('', config.localPort), handler)
+      else:
+          server = HTTPServer(('', config.localPort), handler)
+
       logging.info('Starting httpserver on port {port}...'.format(port=config.localPort))
       server.serve_forever()
     except KeyboardInterrupt:

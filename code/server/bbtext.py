@@ -12,10 +12,18 @@ class Text(object):
     self.height = 0
     self.isBoxed = False
 
-  def setFontCharacteristics(self, font, size):
+  def setFontCharacteristics(self, font, size, sizeBetweenCharacters=-1, spaceSize=-1):
     self.size = size
-    self.sizeBetweenCharacters = int(self.size/10)
-    self.spaceSize = self.sizeBetweenCharacters * 2
+    if sizeBetweenCharacters == -1:
+        self.sizeBetweenCharacters = int(self.size/10)
+    else:
+        self.sizeBetweenCharacters = sizeBetweenCharacters
+
+    if spaceSize == -1:
+        self.spaceSize = self.sizeBetweenCharacters * 2
+    else:
+        self.spaceSize = spaceSize
+
     self.face = freetype.Face(font)
     self.face.set_char_size(size)
 
