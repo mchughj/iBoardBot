@@ -2,6 +2,9 @@
 
 import time
 import argparse
+import logging
+
+logging.basicConfig(level=logging.INFO, format='(%(threadName)-10s) %(message)s')
 
 from http.server import BaseHTTPRequestHandler
 
@@ -9,12 +12,11 @@ use_threaded_server = True
 try:
     from http.server import ThreadingHTTPServer
 except:
-    print("Falling back to the standard HttpServer class")
+    logging.info("Falling back to the standard HttpServer class")
     use_threaded_server = False
     from http.server import HTTPServer
 
 from functools import partial
-import logging
 import urllib.parse
 import threading
 import os.path
@@ -32,8 +34,6 @@ import socket
 import json
 
 from constants import MAX_HEIGHT, MAX_WIDTH
-
-logging.basicConfig(level=logging.INFO, format='(%(threadName)-10s) %(message)s')
 
 parser = argparse.ArgumentParser(description='Server for iBoardBot')
 parser.add_argument('--port', type=int, help='Port to listen on', default=80)
@@ -91,7 +91,7 @@ class NoWorkException(Exception):
 
 class Client(object):
 
-  HEADER_COMMANDS_FOR_FIRST_PACKET = 3
+  HEADER_COMMANDS_FOR_FIRST_PACKET = 4
   SIZE_OF_COMMAND = 3
   HEADER_COMMANDS_FOR_SUBSEQUENT_PACKET = 2
 
@@ -163,12 +163,14 @@ class Client(object):
 
     if isFirst:
       result += bbcs.startDrawing()
+      result += bbcs.liftPen()
 
     result += payload
     return result
 
   def _addFooterToData(self, payload):
     result  = payload 
+    result += bbcs.liftPen()
     result += bbcs.moveTo(0,0)
     result += bbcs.stopDrawing()
     return result
@@ -180,7 +182,7 @@ class Client(object):
     self.nextBlockNumber += 1
     data = self._addHeaderToData(isFirst, self.nextBlockNumber, data)
 
-    logging.info("addNewBlock - enqueue; nextBlockNumber: %d, size: %d", self.nextBlockNumber, len(data))
+    logging.info("addNewBlock - enqueue; nextBlockNumber: %d, size: %d, isFirst: %s", self.nextBlockNumber, len(data), str(isFirst))
 
     entry = (self.nextBlockNumber, data)
     self.queue.append(entry)
@@ -432,11 +434,12 @@ class MyHandler(BaseHTTPRequestHandler):
     c.addNewDrawing(i.getDrawString(x, y))
 
 
-  # addWeatherStartOfDay is a different type of weather view from the normal 'addWeather' mechanism.
-  # In this one at the start of the day a call to clear the board is made and then a call to 
-  # here is made.  This outlines the weather information available at the start of the day.
-  # As the day progresses then the additional datapoints, however many there are, are added to 
-  # the same board without clearing the screen.  
+  # addWeatherStartOfDay is a different type of weather view from the normal
+  # 'addWeather' mechanism.  In this one at the start of the day a call to
+  # clear the board is made and then a call to here is made.  This outlines the
+  # weather information available at the start of the day.  As the day
+  # progresses then the additional datapoints, however many there are, are
+  # added to the same board without clearing the screen.  
   def addWeatherStartOfDay(self, clientId, dayOfWeek, dayOfMonth, time, temperature,
       minTemperature, maxTemperature, description, conditionString):
     logging.info("addWeatherStartOfDay - received the request to add the weather")
@@ -468,6 +471,7 @@ class MyHandler(BaseHTTPRequestHandler):
     l.gen()
     s = l.getDrawString(offsetX=middleColumnLeft, offsetY=100) + \
         l.getDrawString(offsetX=middleColumnRight, offsetY=100)
+    logging.info( "addWeatherStartOfDay - doing vertical lines; payload length: {}".format(len(s)))
     c.addNewDrawing(s)
     s = ""
 
@@ -548,7 +552,7 @@ class MyHandler(BaseHTTPRequestHandler):
     i.genFromFile(iconFile)
     (w, h) = i.getDimensions()
 
-    x = middleColumnLeft + ((middleColumnRight - middleColumnLeft) / 2 ) - (w/2) - middleColumnOffset 
+    x = int(middleColumnLeft + ((middleColumnRight - middleColumnLeft) / 2 ) - (w/2) - middleColumnOffset)
     y = 490
     c.addNewDrawing(i.getDrawString(x, y))
 
@@ -566,39 +570,46 @@ class MyHandler(BaseHTTPRequestHandler):
     # We will be leaving room here on the display for additional
     # datapoints.
     height = 150
-    x = x + 25
-    y = 1000 - (slot * 175) 
-    t = bbfilledtext.FilledText(bbcs, width, height, False)
-    t.setBoxed(False)
-    t.setFontCharacteristics(cv2.FONT_HERSHEY_SIMPLEX, 4, 3)
+    x = x + 60
+    y = 950 - (slot * 200) 
+
+    # t = bbfilledtext.FilledText(bbcs, width, height, False)
+    # t.setFontCharacteristics(os.path.join(os.path.dirname(__file__),'fonts','Exo2-Bold.otf'), 164)
+
+    logging.info( "drawWeatherInfoSlotted - going to draw text; x: {x}, y: {y}, slot: {slot}, height: {height}, time: {time}, temperature: {temp}, description: {d}".format(x=x, y=y, slot=slot, height=height, time=time, temp=temperature, d=description))
+    t = bbtext.Text(bbcs)
+    t.setFontCharacteristics(os.path.join(os.path.dirname(__file__),'fonts','Exo2-Bold.otf'), 164)
     t.setString(time + " - " + temperature)
     t.setBoxed(False)
     t.gen()
-    result = t.getDrawString(x, y)
+
+    # result = t.getDrawString(x, y)
+    result = t.getDrawString((x, y))
 
     # Add the little circle for the degrees
     circle = bbshape.Circle(bbcs)
     circle.setRadius(15)
     circle.gen()
     result += circle.getDrawString(
-        x + t.getTextLowerLeftX() + t.getDimensions()[0], 
-        (y - height) + (t.getDimensions()[1] + 75))
+        t.getTextLowerLeftX() + t.getTextDimensions()[0], 
+        (y + t.getTextDimensions()[1]))
 
     # Add the description
-    x = x + 25 + t.getDimensions()[0] + 25
-    t = bbfilledtext.FilledText(bbcs, width, height, False)
+    x = x + 25 + t.getTextDimensions()[0] + 25
+    t = bbtext.Text(bbcs)
     t.setBoxed(False)
-    t.setFontCharacteristics(cv2.FONT_HERSHEY_SIMPLEX, 4, 3)
+    t.setFontCharacteristics(os.path.join(os.path.dirname(__file__),'fonts','Exo2-Bold.otf'), 164)
     t.setString(" - " + description)
     t.setBoxed(False)
     t.gen()
-    result += t.getDrawString(x, y)
+    result += t.getDrawString((x, y))
 
     return result
 
-  # addWeatherDatapoint will add a new datapoint to the existing weather display.
-  # This is purely addative and requires the first call to addWeatherStartOfDay to
-  # be called to establish the base view and the first datapoint.
+  # addWeatherDatapoint will add a new datapoint to the existing weather
+  # display.  This is purely addative and requires the first call to
+  # addWeatherStartOfDay to be called to establish the base view and the first
+  # datapoint.
   def addWeatherDatapoint(self, clientId, time, temperature, description, conditionString):
     logging.info("addWeatherDatapoint - received the request to add the next line to the weather display")
 

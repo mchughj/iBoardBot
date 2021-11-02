@@ -33,6 +33,9 @@ class FilledText(object):
     self.string = string
 
   def getDimensions(self):
+    return (self.width, self.height)
+
+  def getTextDimensions(self):
     return (self.textWidth, self.textHeight)
 
   def getTextLowerLeftX(self):
