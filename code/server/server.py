@@ -394,11 +394,12 @@ class MyHandler(BaseHTTPRequestHandler):
     c = self.clientManager.getClient(clientId)
     c.clearQueue()
 
-  def erase(self, clientId):
+  def erase(self, clientId, veryClean=False):
     c = self.clientManager.getOrMakeClient(clientId)
-    logging.info("erase - received a request; clientId: %s, queue size: %d", clientId,
-        c.getQueueSize())
+    logging.info("erase - received a request; clientId: %s, queue size: %d, veryClean: %s", clientId,
+        c.getQueueSize(), str(veryClean))
     c.addNewDrawing(bbcs.eraseAll())
+    c.addNewDrawing(bbcs.eraseAll(offset=25, moveY=50))
     logging.info("erase - done enqueueing work; queue size: %d", c.getQueueSize())
 
   def erasePortion(self, clientId, x1, y1, x2, y2, finalSweep):
@@ -774,6 +775,9 @@ class MyHandler(BaseHTTPRequestHandler):
       self.showMainMenu("Queue cleared!")
     elif self.path == "/erase":
       clientId = self.args[CLIENT_ID][0]
+      veryClean = False
+      if "VERY_CLEAN" in self.args:
+        veryClean = True
 
       if "x1" in self.args:
         x1 = int(self.args["x1"][0])
@@ -782,7 +786,7 @@ class MyHandler(BaseHTTPRequestHandler):
         y2 = int(self.args["y2"][0])
         self.erasePortion(clientId, x1, y1, x2, y2, false)
       else:
-        self.erase(clientId)
+        self.erase(clientId, veryClean)
 
       self.showMainMenu("Erased!")
     elif self.path == "/addMockDrawing":

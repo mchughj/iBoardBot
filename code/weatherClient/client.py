@@ -237,6 +237,8 @@ class WeatherManager(object):
       return "RAIN"
     if description == "BROKEN CLOUDS":
       return "CLOUDY"
+    if description == "SCATTERED CLOUDS":
+      return "CLOUDY"
     return description
 
 
@@ -359,7 +361,7 @@ class WeatherManager(object):
     try:
       # Make the request to the boardBot server instance.  First clear the screen and then
       # do the full weather update.
-      boardBotParams = {'ID_IWBB': CLIENT_ID }
+      boardBotParams = {'ID_IWBB': CLIENT_ID, 'VERY_CLEAN': True}
       boardRequest = requests.get(
           url = "http://{url}:{port}/erase".format(url=config.serverName, port=config.serverPort),
           params = boardBotParams)
