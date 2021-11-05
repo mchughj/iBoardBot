@@ -447,30 +447,27 @@ class MyHandler(BaseHTTPRequestHandler):
     c = self.clientManager.getOrMakeClient(clientId)
     s = ""
 
-    # The display is setup in three regions
+    # The display is setup in two regions
     #
     # +----------------------------------------------------------------------------------+
-    # |             |                     |    Time 1 - Temperature  X                   |
-    # |    Weds     |     Min/Max         |    Time 2 - Temperature  Y                   |
-    # |             |                     |                                              |
-    # |    DAY      |     Description     |                                              |
-    # |  Of MONTH   |                     |                                              |
-    # |             |     Icon            |                                              |
-    # |             |                     |                                              |
+    # |             |                          Time 1 - Temperature  X                   |
+    # |    Weds     |                          Time 2 - Temperature  Y                   |
+    # |             |                                                                    |
+    # |    DAY      |                                                                    |
+    # |  Of MONTH   |                                                                    |
+    # |             |                                                                    |
+    # |             |                                                                    |
     # +----------------------------------------------------------------------------------+
-    #        middleColumnLeft     middleColumnRight
+    #        middleColumnLeft     
     middleColumnLeft = 1000
-    middleColumnRight = 1700
-    rightColumnWidth = MAX_WIDTH - middleColumnRight 
 
-    # ----------------------------------------------
-    # Draw the vertical lines separating the regions
-    # ----------------------------------------------
+    # ---------------------------------------------
+    # Draw the vertical line separating the regions
+    # ---------------------------------------------
     l = bbshape.VLine(bbcs)
-    l.setHeight(900)
+    l.setHeight(1000)
     l.gen()
-    s = l.getDrawString(offsetX=middleColumnLeft, offsetY=100) + \
-        l.getDrawString(offsetX=middleColumnRight, offsetY=100)
+    s = l.getDrawString(offsetX=middleColumnLeft, offsetY=50)
     logging.info( "addWeatherStartOfDay - doing vertical lines; payload length: {}".format(len(s)))
     c.addNewDrawing(s)
     s = ""
@@ -502,62 +499,11 @@ class MyHandler(BaseHTTPRequestHandler):
     t.gen()
     c.addNewDrawing(t.getDrawString(x, y))
 
-    # ------------------
-    # Draw middle region
-    # ------------------
+    # -----------------
+    # Draw right region
+    # -----------------
+    s = self.drawWeatherInfoSlotted(slot=0, x=middleColumnLeft, time=time, temperature=temperature, description=description, conditionString=conditionString)
 
-    middleColumnOffset = 40
-
-    # Draw the min/max temperature
-    width = (middleColumnRight - middleColumnLeft) - (middleColumnOffset * 2)
-    height = 200
-    x = middleColumnLeft + middleColumnOffset 
-    y = 825
-    t = bbtext.Text(bbcs)
-    t.setFontCharacteristics(os.path.join(os.path.dirname(__file__),'fonts','Exo2-Bold.otf'), 150)
-    t.setString(minTemperature + " / " + maxTemperature)
-    t.setBoxed(False)
-    t.gen()
-    c.addNewDrawing(t.getDrawString((x, y, width, height)))
-
-    # Draw the textual description
-    width = 500
-    height = 200
-    x = middleColumnLeft + middleColumnOffset
-    y = 500
-    t = bbtext.Text(bbcs)
-    t.setFontCharacteristics(os.path.join(os.path.dirname(__file__),'fonts','Exo2-Bold.otf'), 164)
-    t.setString(description)
-    t.setBoxed(False)
-    t.gen()
-    c.addNewDrawing(t.getDrawString((x, y, width, height)))
-
-    # Draw the icon view
-    iconFile = None
-    if conditionString == "SUNNY":
-      iconFile = "imgs/sunny.png"
-    elif conditionString == "CLOUDY":
-      iconFile = "imgs/cloudy.png"
-    elif conditionString == "SNOW":
-      iconFile = "imgs/snow.png"
-    elif conditionString == "RAIN":
-      iconFile = "imgs/rain.png"
-    else:
-      logging.info("addWeatherStartOfDay - unknown condition string; conditionString: %s",
-          conditionString)
-      iconFile = "imgs/question.png"
-
-    i = bbimage.Image(bbcs)
-    i.setImageCharacteristics(2)
-    i.genFromFile(iconFile)
-    (w, h) = i.getDimensions()
-
-    x = int(middleColumnLeft + ((middleColumnRight - middleColumnLeft) / 2 ) - (w/2) - middleColumnOffset)
-    y = 490
-    c.addNewDrawing(i.getDrawString(x, y))
-
-    # Draw the right most part.
-    s = self.drawWeatherInfoSlotted(slot=0, width=rightColumnWidth, x=middleColumnRight, time = time, temperature = temperature, description = description)
     c.addNewDrawing(s)
     c.setNextWeatherSlot(1)
 
@@ -565,26 +511,36 @@ class MyHandler(BaseHTTPRequestHandler):
     self.send_header('Content-type', 'text/html')
     self.end_headers()
 
-  def drawWeatherInfoSlotted(self, width, x, slot, time, temperature, description):
-    # Draw the time and the current temperature.
-    # We will be leaving room here on the display for additional
-    # datapoints.
+  def drawWeatherInfoSlotted(self, x, slot, time, temperature, description, conditionString):
+    # Draw a single 'row' in the slotted information as the day progresses.
+    hourLeft = x + 100
+    ampmLeft = x + 350
+    temperatureLeft = x + 600 
+    imageLeft = x + 1000
+    descriptionLeft = x + 1220
+
     height = 150
-    x = x + 60
     y = 950 - (slot * 200) 
 
-    # t = bbfilledtext.FilledText(bbcs, width, height, False)
-    # t.setFontCharacteristics(os.path.join(os.path.dirname(__file__),'fonts','Exo2-Bold.otf'), 164)
-
     logging.info( "drawWeatherInfoSlotted - going to draw text; x: {x}, y: {y}, slot: {slot}, height: {height}, time: {time}, temperature: {temp}, description: {d}".format(x=x, y=y, slot=slot, height=height, time=time, temp=temperature, d=description))
+
+    hour = time[0:2]
+
     t = bbtext.Text(bbcs)
     t.setFontCharacteristics(os.path.join(os.path.dirname(__file__),'fonts','cnc_v.ttf'), size=164, sizeBetweenCharacters=30, spaceSize=45)
-    t.setString(time + " - " + temperature)
+    t.setString(hour)
     t.setBoxed(False)
     t.gen()
+    result = t.getDrawString((hourLeft, y))
 
-    # result = t.getDrawString(x, y)
-    result = t.getDrawString((x, y))
+    t.setString(time[-2:])
+    t.gen()
+    result = t.getDrawString((ampmLeft, y))
+
+    t.setString("- " + temperature) 
+    t.setSpaceSize(15)
+    t.gen()
+    result = t.getDrawString((temperatureLeft, y))
 
     # Add the little circle for the degrees
     circle = bbshape.Circle(bbcs)
@@ -594,15 +550,32 @@ class MyHandler(BaseHTTPRequestHandler):
         t.getTextLowerLeftX() + t.getTextDimensions()[0], 
         (y + t.getTextDimensions()[1]))
 
+    iconFile = None
+    if conditionString == "SUNNY":
+      iconFile = "imgs/sunny.png"
+    elif conditionString == "CLOUDY":
+      iconFile = "imgs/Cloud.png"
+    elif conditionString == "SNOW":
+      iconFile = "imgs/snow.png"
+    elif conditionString == "RAIN":
+      iconFile = "imgs/rain.png"
+    else:
+      logging.info("drawWeatherInfoSlotted - unknown condition string; conditionString: %s", conditionString)
+      iconFile = "imgs/Question.png"
+
+    logging.info("drawWeatherInfoSlotted - determined iconFile; conditionString: %s, iconFile: %s", conditionString, iconFile)
+
+    i = bbimage.Image(bbcs)
+    i.setImageCharacteristics(1)
+    i.genFromFile(iconFile)
+    (w, h) = i.getDimensions()
+    result += i.getDrawString(imageLeft, y+h)
+
     # Add the description
-    x = x + 25 + t.getTextDimensions()[0] + 25
-    t = bbtext.Text(bbcs)
-    t.setBoxed(False)
-    t.setFontCharacteristics(os.path.join(os.path.dirname(__file__),'fonts','cnc_v.ttf'), size=164, sizeBetweenCharacters=30, spaceSize=45)
-    t.setString(" - " + description)
+    t.setString(description)
     t.setBoxed(False)
     t.gen()
-    result += t.getDrawString((x, y))
+    result += t.getDrawString((descriptionLeft, y))
 
     return result
 
@@ -613,13 +586,12 @@ class MyHandler(BaseHTTPRequestHandler):
   def addWeatherDatapoint(self, clientId, time, temperature, description, conditionString):
     logging.info("addWeatherDatapoint - received the request to add the next line to the weather display")
 
-    middleColumnRight = 1700
-    rightColumnWidth = MAX_WIDTH - middleColumnRight 
-
     c = self.clientManager.getOrMakeClient(clientId) 
     slot = c.getNextWeatherSlot()
 
-    c.addNewDrawing( self.drawWeatherInfoSlotted(slot=slot, width=rightColumnWidth, x=middleColumnRight, time=time, temperature=temperature, description = description))
+    middleColumnLeft = 1000
+
+    c.addNewDrawing( self.drawWeatherInfoSlotted(slot=slot, x=middleColumnLeft, time=time, temperature=temperature, description=description, conditionString=conditionString))
     c.setNextWeatherSlot(slot+1)
 
     self.send_response(200)
