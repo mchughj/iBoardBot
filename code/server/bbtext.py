@@ -12,6 +12,12 @@ class Text(object):
     self.height = 0
     self.isBoxed = False
 
+  def setSizeBetweenCharacters(self, sizeBetweenCharacters):
+      self.sizeBetweenCharacters = sizeBetweenCharacters
+
+  def setSpaceSize(self, spaceSize):
+      self.spaceSize = spaceSize
+
   def setFontCharacteristics(self, font, size, sizeBetweenCharacters=-1, spaceSize=-1):
     self.size = size
     if sizeBetweenCharacters == -1:
@@ -36,6 +42,9 @@ class Text(object):
   def gen(self):
     self.width = 0
     self.height = 0
+    self.points = []
+    self.contours = []
+    self.dimensions = []
 
     for s in self.string:
       self.face.load_char(s)
@@ -43,15 +52,14 @@ class Text(object):
       bbox = self.face.bbox
 
       if len(o.points) == 0:
-        logging.info("gen - no point information; char: '%s'", s)
+        logging.debug("gen - no point information; char: '%s'", s)
         characterWidth = self.spaceSize
         characterHeight = 0
       else:
         characterWidth = max([ p[0] for p in o.points ])
         characterHeight = max([ p[1] for p in o.points ])
 
-        logging.info("gen - character info; char: '%s', "
-                     "characterHeight: %d, characterWidth: %d",
+        logging.debug("gen - character info; char: '%s', characterHeight: %d, characterWidth: %d",
               s, characterHeight, characterWidth)
 
       self.width += characterWidth
