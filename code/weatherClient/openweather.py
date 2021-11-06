@@ -70,8 +70,8 @@ allWeatherTypes = [
 
 def getWeatherTypeByNumericID(id):
     for x in allWeatherTypes:
-        if x.id == id
+        if x.id == id:
          return x
     
-    logging.warn("getWeatherTypeByNumericID - cannot find requested id returning sentinel; id: {}".format(id))
-    return WeatherType(0, "Unknown", "UNKNOWN", "Question.png")
+    logging.warn("getWeatherTypeByNumericID - cannot find requested; id: {}".format(id))
+    return None

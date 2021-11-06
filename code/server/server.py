@@ -442,7 +442,7 @@ class MyHandler(BaseHTTPRequestHandler):
   # progresses then the additional datapoints, however many there are, are
   # added to the same board without clearing the screen.  
   def addWeatherStartOfDay(self, clientId, dayOfWeek, dayOfMonth, time, temperature,
-      minTemperature, maxTemperature, description, conditionString):
+      minTemperature, maxTemperature, description, iconFilename):
     logging.info("addWeatherStartOfDay - received the request to add the weather")
 
     c = self.clientManager.getOrMakeClient(clientId)
@@ -469,7 +469,6 @@ class MyHandler(BaseHTTPRequestHandler):
     l.setHeight(1000)
     l.gen()
     s = l.getDrawString(offsetX=middleColumnLeft, offsetY=50)
-    logging.info( "addWeatherStartOfDay - doing vertical lines; payload length: {}".format(len(s)))
     c.addNewDrawing(s)
     s = ""
 
@@ -503,7 +502,7 @@ class MyHandler(BaseHTTPRequestHandler):
     # -----------------
     # Draw right region
     # -----------------
-    s = self.drawWeatherInfoSlotted(slot=0, x=middleColumnLeft, time=time, temperature=temperature, description=description, conditionString=conditionString)
+    s = self.drawWeatherInfoSlotted(slot=0, x=middleColumnLeft, time=time, temperature=temperature, description=description, iconFilename=iconFilename)
 
     c.addNewDrawing(s)
     c.setNextWeatherSlot(1)
@@ -512,7 +511,7 @@ class MyHandler(BaseHTTPRequestHandler):
     self.send_header('Content-type', 'text/html')
     self.end_headers()
 
-  def drawWeatherInfoSlotted(self, x, slot, time, temperature, description, conditionString):
+  def drawWeatherInfoSlotted(self, x, slot, time, temperature, description, iconFilename):
     # Draw a single 'row' in the slotted information as the day progresses.
     hourLeft = x + 100
     ampmLeft = x + 350
@@ -552,24 +551,9 @@ class MyHandler(BaseHTTPRequestHandler):
         t.getTextLowerLeftX() + t.getTextDimensions()[0], 
         (y + t.getTextDimensions()[1]))
 
-    iconFile = None
-    if conditionString == "SUNNY":
-      iconFile = "imgs/sunny.png"
-    elif conditionString == "CLOUDY":
-      iconFile = "imgs/Cloud.png"
-    elif conditionString == "SNOW":
-      iconFile = "imgs/snow.png"
-    elif conditionString == "RAIN":
-      iconFile = "imgs/rain.png"
-    else:
-      logging.info("drawWeatherInfoSlotted - unknown condition string; conditionString: %s", conditionString)
-      iconFile = "imgs/Question.png"
-
-    logging.info("drawWeatherInfoSlotted - determined iconFile; conditionString: %s, iconFile: %s", conditionString, iconFile)
-
     i = bbimage.Image(bbcs)
     i.setImageCharacteristics(1)
-    i.genFromFile(iconFile)
+    i.genFromFile("imgs/{}".format(iconFilename))
     (w, h) = i.getDimensions()
     result += i.getDrawString(imageLeft, y+h)
 
@@ -585,7 +569,7 @@ class MyHandler(BaseHTTPRequestHandler):
   # display.  This is purely addative and requires the first call to
   # addWeatherStartOfDay to be called to establish the base view and the first
   # datapoint.
-  def addWeatherDatapoint(self, clientId, time, temperature, description, conditionString):
+  def addWeatherDatapoint(self, clientId, time, temperature, description, iconFilename):
     logging.info("addWeatherDatapoint - received the request to add the next line to the weather display")
 
     c = self.clientManager.getOrMakeClient(clientId) 
@@ -593,7 +577,7 @@ class MyHandler(BaseHTTPRequestHandler):
 
     middleColumnLeft = 1000
 
-    c.addNewDrawing( self.drawWeatherInfoSlotted(slot=slot, x=middleColumnLeft, time=time, temperature=temperature, description=description, conditionString=conditionString))
+    c.addNewDrawing( self.drawWeatherInfoSlotted(slot=slot, x=middleColumnLeft, time=time, temperature=temperature, description=description, iconFilename=iconFilename))
     c.setNextWeatherSlot(slot+1)
 
     self.send_response(200)
@@ -825,9 +809,9 @@ class MyHandler(BaseHTTPRequestHandler):
       minTemperature = self.args["minTemperature"][0]
       maxTemperature = self.args["maxTemperature"][0]
       description = self.args["description"][0]
-      condition = self.args["condition"][0]
+      iconFilename = self.args["iconFilename"][0]
       self.addWeatherStartOfDay(clientId, dayOfWeek, dayOfMonth, time, temperature,
-          minTemperature, maxTemperature, description, condition)
+          minTemperature, maxTemperature, description, iconFilename)
 
       self.showMainMenu("Showed weather start of day")
 
@@ -836,8 +820,8 @@ class MyHandler(BaseHTTPRequestHandler):
       time = self.args["time"][0]
       temperature = self.args["temperature"][0]
       description = self.args["description"][0]
-      condition = self.args["condition"][0]
-      self.addWeatherDatapoint(clientId, time, temperature, description, condition)
+      iconFilename = self.args["iconFilename"][0]
+      self.addWeatherDatapoint(clientId, time, temperature, description, iconFilename)
 
       self.showMainMenu("Showed weather datapoint")
 

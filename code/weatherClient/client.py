@@ -210,8 +210,8 @@ class WeatherManager(object):
           'ID_IWBB': CLIENT_ID,
           'time': timeString,
           'temperature': int(currentTemp),
-          'iconFile': self._mapConditionCodeToIconFile(condition),
-          'description': self._mapDescriptionString(description.upper())}
+          'iconFilename': self._mapConditionCodeToIconFile(condition),
+          'description': self._mapConditionAndDescriptionToStandardDescription(condition, description.upper())}
       
       logging.info("Making request to http://{url}:{port}/weatherDatapoint - params: {params}".format(
           url=config.serverName, port=config.serverPort, params=pprint.pformat(boardBotParams)))
@@ -225,87 +225,33 @@ class WeatherManager(object):
       pass
 
   def _mapConditionCodeToIconFile(self, condition):
-
-
-  def _mapDescriptionString(self, description):
-    # List of known weather conditions taken from
-    # https://openweathermap.org/weather-conditions
-    mapping = {
-        "THUNDERSTORM WITH LIGHT RAIN" : "STORM, LIGHT RAIN",
-        "THUNDERSTORM WITH RAIN" : "STORM & RAIN",
-        "THUNDERSTORM WITH HEAVY RAIN" : "STORM HEAVY RAIN",
-        "LIGHT THUNDERSTORM" : "LIGHT STORM",
-        "THUNDERSTORM" : "STORM",
-        "HEAVY THUNDERSTORM" : "HEAVY STORM",
-        "RAGGED THUNDERSTORM" : "RAGGED STORM",
-        "THUNDERSTORM WITH LIGHT DRIZZLE" : "STORM & DRIZZLE",
-        "THUNDERSTORM WITH DRIZZLE" : "STORM & LT DRIZZLE",
-        "THUNDERSTORM WITH HEAVY DRIZZLE" : "STORM & H DRIZZLE",
-        "LIGHT INTENSITY DRIZZLE" : "LIGHT DRIZZLE",
-        "DRIZZLE" : "DRIZZLE",
-        "HEAVY INTENSITY DRIZZLE" : "HEAVY DRIZZLE",
-        "LIGHT INTENSITY DRIZZLE RAIN" : "LIGHT DRIZZLE",
-        "DRIZZLE RAIN" : "DRIZZLE RAIN",
-        "HEAVY INTENSITY DRIZZLE RAIN" : "HEAVY DRIZZLE",
-        "SHOWER RAIN AND DRIZZLE" : "HEAVY DRIZZLE",
-        "HEAVY SHOWER RAIN AND DRIZZLE" : "HEAVY DRIZZLE",
-        "SHOWER DRIZZLE" : "SHOWER DRIZZLE",
-        "LIGHT RAIN" : "LIGHT RAIN",
-        "MODERATE RAIN" : "MODERATE RAIN",
-        "HEAVY INTENSITY RAIN" : "HEAVY RAIN",
-        "VERY HEAVY RAIN" : "VERY RAINY",
-        "EXTREME RAIN" : "EXTREME RAIN",
-        "FREEZING RAIN" : "FREEZING RAIN",
-        "LIGHT INTENSITY SHOWER RAIN" : "LIGHT RAIN",
-        "SHOWER RAIN" : "RAIN",
-        "HEAVY INTENSITY SHOWER RAIN" : "HEAVY RAIN",
-        "RAGGED SHOWER RAIN" : "RAGGED RAIN",
-        "LIGHT SNOW" : "LIGHT SNOW",
-        "SNOW" : "SNOW",
-        "HEAVY SNOW" : "HEAVY SNOW",
-        "SLEET" : "SLEET",
-        "LIGHT SHOWER SLEET" : "LIGHT SLEET",
-        "SHOWER SLEET" : "SHOWER SLEET",
-        "LIGHT RAIN AND SNOW" : "RAIN AND SNOW",
-        "RAIN AND SNOW" : "RAIN AND SNOW",
-        "LIGHT SHOWER SNOW" : "LIGHT SLEET",
-        "SHOWER SNOW" : "SLEET",
-        "HEAVY SHOWER SNOW" : "HEAVY SLEET",
-        "MIST" : "MIST",
-        "SMOKE" : "SMOKE",
-        "HAZE" : "HAZE",
-        "SAND/ DUST WHIRLS" : "SAND/DUST",
-        "FOG" : "FOG",
-        "SAND" : "SAND",
-        "DUST" : "DUST",
-        "VOLCANIC ASH" : "VOLCANIC ASH",
-        "SQUALLS" : "SQUALLS",
-        "TORNADO" : "TORNADO",
-        "CLEAR SKY" : "CLEAR SKY",
-        "FEW CLOUDS" : "FEW CLOUDS",
-        "SCATTERED CLOUDS" : "SCATTERED CLOUDS",
-        "BROKEN CLOUDS" : "BROKEN CLOUDS",
-        "OVERCAST CLOUDS" : "OVERCAST CLOUDS",
-      }
-
-    if description in mapping:
-      result = mapping[description]
+    wt = openweather.getWeatherTypeByNumericID(condition)
+    if wt == None:
+      return "Question.png"
     else:
-      if len(description) < 12:
-        result = description
-      else:  
-        result = description[0:12]
+      return wt.icon_filename
 
-    logging.info("_mapDescriptionString - returning result; description: {}, result: {}".format(description, result))
+  def _mapConditionAndDescriptionToStandardDescription(self, condition, description):
+    wt = openweather.getWeatherTypeByNumericID(condition)
+
+    if wt != None:
+      logging.info("_mapConditionAndDescriptionToStandardDescription - found condition; condition: {}, description: {}, result: {}".format(condition, description, wt.shorter_description))
+      return wt.shorter_description
+
+    if len(description) < 12:
+      result = description
+    else:  
+      result = description[0:12]
+
+    logging.info("_mapConditionAndDescriptionToStandardDescription - could not find condition; condition: {}, description: {}, result: {}".format(condition, description, result))
     return result
-
 
   def _runForever(self):
     logging.info("_runForever - on enter; runImmediately: %s", self.runImmediately)
     if self.runImmediately:
       self.trackDayChanges()
       if config.doIncrementalDaily:
-        self.fullRefresh(resource="/weatherStartOfDay")
+        self.fullRefresh(resource="/weatherStartOfDay", includeIconFilename=True)
       else:   
         self.fullRefresh()
 
@@ -330,7 +276,7 @@ class WeatherManager(object):
         isNewDay = self.trackDayChanges()
         if isNewDay:
           logging.info("_runForever - incremental daily refresh is a new day!")
-          self.fullRefresh(resource="/weatherStartOfDay")
+          self.fullRefresh(resource="/weatherStartOfDay", includeIconFilename=True)
         else:
           self._addWeatherDatapoint()
       else:
@@ -370,7 +316,7 @@ class WeatherManager(object):
         params = boardBotParams)
     return boardRequest.ok
 
-  def fullRefresh(self, resource = "/weather"):
+  def fullRefresh(self, resource = "/weather", includeIconFilename = False):
     data = None
     self.lastFullRefresh = time.time()
     self.priorHour = time.localtime()[3]
@@ -436,8 +382,10 @@ class WeatherManager(object):
           'minTemperature': int(tempMin),
           'maxTemperature': int(tempMax),
           'condition': conditionString,
-          'iconFile': self._mapConditionCodeToIconFile(condition),
-          'description': self._mapDescriptionString(description.upper())}
+          'description': self._mapConditionAndDescriptionToStandardDescription(condition, description.upper())}
+
+      if includeIconFilename:
+        boardBotParams['iconFilename'] = self._mapConditionCodeToIconFile(condition),
       
       logging.info("Making request to http://{url}:{port}{resource} - params: {params}".format(
           url=config.serverName, port=config.serverPort, resource=resource, params=pprint.pformat(boardBotParams)))
@@ -541,7 +489,7 @@ class MyHandler(BaseHTTPRequestHandler):
     elif self.path == "/doFull":
       if config.doIncrementalDaily:
         logging.info("Received a request to do a full refresh of the weather - doing incremental version - start of the day!")
-        self.weatherManager.fullRefresh(resource="/weatherStartOfDay")
+        self.weatherManager.fullRefresh(resource="/weatherStartOfDay", includeIconFilename=True)
       else:   
         logging.info("Received a request to do a full refresh of the weather - doing full")
         self.weatherManager.fullRefresh()
