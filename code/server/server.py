@@ -523,9 +523,10 @@ class MyHandler(BaseHTTPRequestHandler):
     height = 150
     y = 950 - (slot * 200) 
 
-    logging.info( "drawWeatherInfoSlotted - going to draw text; x: {x}, y: {y}, slot: {slot}, height: {height}, time: {time}, temperature: {temp}, description: {d}".format(x=x, y=y, slot=slot, height=height, time=time, temp=temperature, d=description))
-
     hour = time[0:2]
+    ampmString = time[-2:]
+
+    logging.info( "drawWeatherInfoSlotted - going to draw text; x: {x}, y: {y}, slot: {slot}, height: {height}, time: {time}, hour: {hour}, ampmp: {ampmString}, temperature: {temp}, description: {d}".format(x=x, y=y, slot=slot, height=height, time=time, hour=hour, ampmString=ampmString, temp=temperature, d=description))
 
     t = bbtext.Text(bbcs)
     t.setFontCharacteristics(os.path.join(os.path.dirname(__file__),'fonts','cnc_v.ttf'), size=164, sizeBetweenCharacters=30, spaceSize=45)
@@ -534,14 +535,14 @@ class MyHandler(BaseHTTPRequestHandler):
     t.gen()
     result = t.getDrawString((hourLeft, y))
 
-    t.setString(time[-2:])
+    t.setString(ampmString)
     t.gen()
-    result = t.getDrawString((ampmLeft, y))
+    result += t.getDrawString((ampmLeft, y))
 
     t.setString("- " + temperature) 
     t.setSpaceSize(15)
     t.gen()
-    result = t.getDrawString((temperatureLeft, y))
+    result += t.getDrawString((temperatureLeft, y))
 
     # Add the little circle for the degrees
     circle = bbshape.Circle(bbcs)

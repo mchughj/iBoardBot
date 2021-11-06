@@ -7,3 +7,4 @@ runme.bat
 ***/*.swp
 ***/*.swo
 github_token.txt
+code/weatherClient/forecastResults.txt

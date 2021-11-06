@@ -16,6 +16,7 @@ import socket
 import urllib.parse
 import logging
 from functools import partial
+import openweather
 
 logging.basicConfig(level=logging.DEBUG, 
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -197,10 +198,9 @@ class WeatherManager(object):
       else:
         conditionString = "UNKNOWN"
 
-    logging.info("_addWeatherDatapoint - got information; timeString: {ts}, currentTemp: {currentTemp}, description: {desc}, condition: {condition}, conditionString: {conditionString}".format( 
+    logging.info("_addWeatherDatapoint - got information; timeString: {ts}, currentTemp: {currentTemp}, description: {desc}, condition: {condition}".format( 
         ts=timeString, currentTemp=currentTemp, 
-        desc=description, condition=condition, 
-        conditionString=conditionString))
+        desc=description, condition=condition))
 
     try:
       # Make the request to the boardBot server instance.  First clear the screen and then
@@ -210,8 +210,8 @@ class WeatherManager(object):
           'ID_IWBB': CLIENT_ID,
           'time': timeString,
           'temperature': int(currentTemp),
-          'condition': conditionString,
-          'description': self._makeSmallerDescription(description.upper())}
+          'iconFile': self._mapConditionCodeToIconFile(condition),
+          'description': self._mapDescriptionString(description.upper())}
       
       logging.info("Making request to http://{url}:{port}/weatherDatapoint - params: {params}".format(
           url=config.serverName, port=config.serverPort, params=pprint.pformat(boardBotParams)))
@@ -224,22 +224,80 @@ class WeatherManager(object):
       return False
       pass
 
-  def _makeSmallerDescription(self, description):
-    if description.startswith("CLEAR"):
-      return "CLEAR"
-    if description.startswith("OVERCAST"):
-      return "GREY"
-    if description.startswith("LIGHT RA"):
-      return "LT RAIN"
-    if description.startswith("MODERATE RA"):
-      return "M RAIN"
-    if description.startswith("RAIN"):
-      return "RAIN"
-    if description == "BROKEN CLOUDS":
-      return "CLOUDY"
-    if description == "SCATTERED CLOUDS":
-      return "CLOUDY"
-    return description
+  def _mapConditionCodeToIconFile(self, condition):
+
+
+  def _mapDescriptionString(self, description):
+    # List of known weather conditions taken from
+    # https://openweathermap.org/weather-conditions
+    mapping = {
+        "THUNDERSTORM WITH LIGHT RAIN" : "STORM, LIGHT RAIN",
+        "THUNDERSTORM WITH RAIN" : "STORM & RAIN",
+        "THUNDERSTORM WITH HEAVY RAIN" : "STORM HEAVY RAIN",
+        "LIGHT THUNDERSTORM" : "LIGHT STORM",
+        "THUNDERSTORM" : "STORM",
+        "HEAVY THUNDERSTORM" : "HEAVY STORM",
+        "RAGGED THUNDERSTORM" : "RAGGED STORM",
+        "THUNDERSTORM WITH LIGHT DRIZZLE" : "STORM & DRIZZLE",
+        "THUNDERSTORM WITH DRIZZLE" : "STORM & LT DRIZZLE",
+        "THUNDERSTORM WITH HEAVY DRIZZLE" : "STORM & H DRIZZLE",
+        "LIGHT INTENSITY DRIZZLE" : "LIGHT DRIZZLE",
+        "DRIZZLE" : "DRIZZLE",
+        "HEAVY INTENSITY DRIZZLE" : "HEAVY DRIZZLE",
+        "LIGHT INTENSITY DRIZZLE RAIN" : "LIGHT DRIZZLE",
+        "DRIZZLE RAIN" : "DRIZZLE RAIN",
+        "HEAVY INTENSITY DRIZZLE RAIN" : "HEAVY DRIZZLE",
+        "SHOWER RAIN AND DRIZZLE" : "HEAVY DRIZZLE",
+        "HEAVY SHOWER RAIN AND DRIZZLE" : "HEAVY DRIZZLE",
+        "SHOWER DRIZZLE" : "SHOWER DRIZZLE",
+        "LIGHT RAIN" : "LIGHT RAIN",
+        "MODERATE RAIN" : "MODERATE RAIN",
+        "HEAVY INTENSITY RAIN" : "HEAVY RAIN",
+        "VERY HEAVY RAIN" : "VERY RAINY",
+        "EXTREME RAIN" : "EXTREME RAIN",
+        "FREEZING RAIN" : "FREEZING RAIN",
+        "LIGHT INTENSITY SHOWER RAIN" : "LIGHT RAIN",
+        "SHOWER RAIN" : "RAIN",
+        "HEAVY INTENSITY SHOWER RAIN" : "HEAVY RAIN",
+        "RAGGED SHOWER RAIN" : "RAGGED RAIN",
+        "LIGHT SNOW" : "LIGHT SNOW",
+        "SNOW" : "SNOW",
+        "HEAVY SNOW" : "HEAVY SNOW",
+        "SLEET" : "SLEET",
+        "LIGHT SHOWER SLEET" : "LIGHT SLEET",
+        "SHOWER SLEET" : "SHOWER SLEET",
+        "LIGHT RAIN AND SNOW" : "RAIN AND SNOW",
+        "RAIN AND SNOW" : "RAIN AND SNOW",
+        "LIGHT SHOWER SNOW" : "LIGHT SLEET",
+        "SHOWER SNOW" : "SLEET",
+        "HEAVY SHOWER SNOW" : "HEAVY SLEET",
+        "MIST" : "MIST",
+        "SMOKE" : "SMOKE",
+        "HAZE" : "HAZE",
+        "SAND/ DUST WHIRLS" : "SAND/DUST",
+        "FOG" : "FOG",
+        "SAND" : "SAND",
+        "DUST" : "DUST",
+        "VOLCANIC ASH" : "VOLCANIC ASH",
+        "SQUALLS" : "SQUALLS",
+        "TORNADO" : "TORNADO",
+        "CLEAR SKY" : "CLEAR SKY",
+        "FEW CLOUDS" : "FEW CLOUDS",
+        "SCATTERED CLOUDS" : "SCATTERED CLOUDS",
+        "BROKEN CLOUDS" : "BROKEN CLOUDS",
+        "OVERCAST CLOUDS" : "OVERCAST CLOUDS",
+      }
+
+    if description in mapping:
+      result = mapping[description]
+    else:
+      if len(description) < 12:
+        result = description
+      else:  
+        result = description[0:12]
+
+    logging.info("_mapDescriptionString - returning result; description: {}, result: {}".format(description, result))
+    return result
 
 
   def _runForever(self):
@@ -378,7 +436,8 @@ class WeatherManager(object):
           'minTemperature': int(tempMin),
           'maxTemperature': int(tempMax),
           'condition': conditionString,
-          'description': self._makeSmallerDescription(description.upper())}
+          'iconFile': self._mapConditionCodeToIconFile(condition),
+          'description': self._mapDescriptionString(description.upper())}
       
       logging.info("Making request to http://{url}:{port}{resource} - params: {params}".format(
           url=config.serverName, port=config.serverPort, resource=resource, params=pprint.pformat(boardBotParams)))
