@@ -2,11 +2,21 @@
 
 import time
 import argparse
+import logging
 
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+logging.basicConfig(level=logging.INFO, format='(%(threadName)-10s) %(message)s')
+
+from http.server import BaseHTTPRequestHandler
+
+use_threaded_server = True
+try:
+    from http.server import ThreadingHTTPServer
+except:
+    logging.info("Falling back to the standard HttpServer class")
+    use_threaded_server = False
+    from http.server import HTTPServer
 
 from functools import partial
-import logging
 import urllib.parse
 import threading
 import os.path
@@ -19,12 +29,11 @@ import freetype
 import bbtext
 import bbfilledtext
 import cv2
+import socket
 
 import json
 
 from constants import MAX_HEIGHT, MAX_WIDTH
-
-logging.basicConfig(level=logging.INFO, format='(%(threadName)-10s) %(message)s')
 
 parser = argparse.ArgumentParser(description='Server for iBoardBot')
 parser.add_argument('--port', type=int, help='Port to listen on', default=80)
@@ -40,6 +49,20 @@ bbcs = Bbcs()
 
 DEVICE_URL_PREFIX = "/ibb-device/"
 CLIENT_ID = "ID_IWBB"
+
+# Return the primary IP address for this box.  
+def getIP():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        # doesn't even have to be reachable
+        s.connect(('10.255.255.255', 1))
+        IP = s.getsockname()[0]
+    except Exception:
+        IP = '127.0.0.1'
+    finally:
+        s.close()
+    return IP
+
 
 def mockDrawData(size = 0):
   if size == 0:
@@ -68,7 +91,7 @@ class NoWorkException(Exception):
 
 class Client(object):
 
-  HEADER_COMMANDS_FOR_FIRST_PACKET = 3
+  HEADER_COMMANDS_FOR_FIRST_PACKET = 4
   SIZE_OF_COMMAND = 3
   HEADER_COMMANDS_FOR_SUBSEQUENT_PACKET = 2
 
@@ -81,6 +104,7 @@ class Client(object):
     self.condition = threading.Condition()
     self.queue = []
     self.nextBlockNumber = 0
+    self.nextWeatherSlot = 0
 
   def recordAccess(self):
     self.numberOfAccesses += 1
@@ -139,12 +163,14 @@ class Client(object):
 
     if isFirst:
       result += bbcs.startDrawing()
+      result += bbcs.liftPen()
 
     result += payload
     return result
 
   def _addFooterToData(self, payload):
     result  = payload 
+    result += bbcs.liftPen()
     result += bbcs.moveTo(0,0)
     result += bbcs.stopDrawing()
     return result
@@ -156,7 +182,7 @@ class Client(object):
     self.nextBlockNumber += 1
     data = self._addHeaderToData(isFirst, self.nextBlockNumber, data)
 
-    logging.info("addNewBlock - enqueue; nextBlockNumber: %d, size: %d", self.nextBlockNumber, len(data))
+    logging.info("addNewBlock - enqueue; nextBlockNumber: %d, size: %d, isFirst: %s", self.nextBlockNumber, len(data), str(isFirst))
 
     entry = (self.nextBlockNumber, data)
     self.queue.append(entry)
@@ -176,6 +202,12 @@ class Client(object):
   def getQueueSize(self):
     with self.condition:
       return len(self.queue)
+
+  def getNextWeatherSlot(self):
+      return self.nextWeatherSlot
+
+  def setNextWeatherSlot(self, slot):
+      self.nextWeatherSlot = slot
 
 
 class ClientManager(object):
@@ -297,7 +329,9 @@ class MyHandler(BaseHTTPRequestHandler):
       self.sendText(message)
       self.sendText("</font>)</hr></br>")
 
+    self.sendText("Weather server can be found <a href=\"http://{IP}:8080/\">here</a>.<BR>".format(IP=getIP()))
     self.sendText("<br>")
+
     self.sendText("Clients<br>")
     self.sendText("<table style=\"width:100%\">")
     self.sendText("<tr><th>ID</th><th>Queue Size</th><th>Actions</th></tr>")
@@ -360,11 +394,12 @@ class MyHandler(BaseHTTPRequestHandler):
     c = self.clientManager.getClient(clientId)
     c.clearQueue()
 
-  def erase(self, clientId):
+  def erase(self, clientId, veryClean=False):
     c = self.clientManager.getOrMakeClient(clientId)
-    logging.info("erase - received a request; clientId: %s, queue size: %d", clientId,
-        c.getQueueSize())
+    logging.info("erase - received a request; clientId: %s, queue size: %d, veryClean: %s", clientId,
+        c.getQueueSize(), str(veryClean))
     c.addNewDrawing(bbcs.eraseAll())
+    c.addNewDrawing(bbcs.eraseAll(offset=25, moveY=50))
     logging.info("erase - done enqueueing work; queue size: %d", c.getQueueSize())
 
   def erasePortion(self, clientId, x1, y1, x2, y2, finalSweep):
@@ -399,14 +434,52 @@ class MyHandler(BaseHTTPRequestHandler):
 
     c.addNewDrawing(i.getDrawString(x, y))
 
-  def addWeather(self, clientId, dayOfWeek, dayOfMonth, time, temperature,
-      minTemperature, maxTemperature, description, conditionString):
-    logging.info("addWeather - received the request to add the weather")
-    c = self.clientManager.getOrMakeClient(clientId)
 
+  # addWeatherStartOfDay is a different type of weather view from the normal
+  # 'addWeather' mechanism.  In this one at the start of the day a call to
+  # clear the board is made and then a call to here is made.  This outlines the
+  # weather information available at the start of the day.  As the day
+  # progresses then the additional datapoints, however many there are, are
+  # added to the same board without clearing the screen.  
+  def addWeatherStartOfDay(self, clientId, dayOfWeek, dayOfMonth, time, temperature,
+      minTemperature, maxTemperature, description, conditionString):
+    logging.info("addWeatherStartOfDay - received the request to add the weather")
+
+    c = self.clientManager.getOrMakeClient(clientId)
     s = ""
+
+    # The display is setup in two regions
+    #
+    # +----------------------------------------------------------------------------------+
+    # |             |                          Time 1 - Temperature  X                   |
+    # |    Weds     |                          Time 2 - Temperature  Y                   |
+    # |             |                                                                    |
+    # |    DAY      |                                                                    |
+    # |  Of MONTH   |                                                                    |
+    # |             |                                                                    |
+    # |             |                                                                    |
+    # +----------------------------------------------------------------------------------+
+    #        middleColumnLeft     
+    middleColumnLeft = 1000
+
+    # ---------------------------------------------
+    # Draw the vertical line separating the regions
+    # ---------------------------------------------
+    l = bbshape.VLine(bbcs)
+    l.setHeight(1000)
+    l.gen()
+    s = l.getDrawString(offsetX=middleColumnLeft, offsetY=50)
+    logging.info( "addWeatherStartOfDay - doing vertical lines; payload length: {}".format(len(s)))
+    c.addNewDrawing(s)
+    s = ""
+
+    # ------------------
+    # Draw Left region
+    # ------------------
+
+    # Draw the day of the week (e.g., "Wed").
     y = 800
-    x = 250
+    x = 200
     width = 700
     height = 250
     t = bbtext.Text(bbcs)
@@ -419,13 +492,119 @@ class MyHandler(BaseHTTPRequestHandler):
     width = 700
     height = 500
     y = 140 + height
-    x = 275
+    x = 225
     
     t = bbinversetextbox.InverseTextBox(bbcs, width, height)
     t.setRoundedRectangle(True)
     t.setString(dayOfMonth)
     t.gen()
     c.addNewDrawing(t.getDrawString(x, y))
+
+    # -----------------
+    # Draw right region
+    # -----------------
+    s = self.drawWeatherInfoSlotted(slot=0, x=middleColumnLeft, time=time, temperature=temperature, description=description, conditionString=conditionString)
+
+    c.addNewDrawing(s)
+    c.setNextWeatherSlot(1)
+
+    self.send_response(200)
+    self.send_header('Content-type', 'text/html')
+    self.end_headers()
+
+  def drawWeatherInfoSlotted(self, x, slot, time, temperature, description, conditionString):
+    # Draw a single 'row' in the slotted information as the day progresses.
+    hourLeft = x + 100
+    ampmLeft = x + 350
+    temperatureLeft = x + 600 
+    imageLeft = x + 1000
+    descriptionLeft = x + 1220
+
+    height = 150
+    y = 950 - (slot * 200) 
+
+    logging.info( "drawWeatherInfoSlotted - going to draw text; x: {x}, y: {y}, slot: {slot}, height: {height}, time: {time}, temperature: {temp}, description: {d}".format(x=x, y=y, slot=slot, height=height, time=time, temp=temperature, d=description))
+
+    hour = time[0:2]
+
+    t = bbtext.Text(bbcs)
+    t.setFontCharacteristics(os.path.join(os.path.dirname(__file__),'fonts','cnc_v.ttf'), size=164, sizeBetweenCharacters=30, spaceSize=45)
+    t.setString(hour)
+    t.setBoxed(False)
+    t.gen()
+    result = t.getDrawString((hourLeft, y))
+
+    t.setString(time[-2:])
+    t.gen()
+    result = t.getDrawString((ampmLeft, y))
+
+    t.setString("- " + temperature) 
+    t.setSpaceSize(15)
+    t.gen()
+    result = t.getDrawString((temperatureLeft, y))
+
+    # Add the little circle for the degrees
+    circle = bbshape.Circle(bbcs)
+    circle.setRadius(15)
+    circle.gen()
+    result += circle.getDrawString(
+        t.getTextLowerLeftX() + t.getTextDimensions()[0], 
+        (y + t.getTextDimensions()[1]))
+
+    iconFile = None
+    if conditionString == "SUNNY":
+      iconFile = "imgs/sunny.png"
+    elif conditionString == "CLOUDY":
+      iconFile = "imgs/Cloud.png"
+    elif conditionString == "SNOW":
+      iconFile = "imgs/snow.png"
+    elif conditionString == "RAIN":
+      iconFile = "imgs/rain.png"
+    else:
+      logging.info("drawWeatherInfoSlotted - unknown condition string; conditionString: %s", conditionString)
+      iconFile = "imgs/Question.png"
+
+    logging.info("drawWeatherInfoSlotted - determined iconFile; conditionString: %s, iconFile: %s", conditionString, iconFile)
+
+    i = bbimage.Image(bbcs)
+    i.setImageCharacteristics(1)
+    i.genFromFile(iconFile)
+    (w, h) = i.getDimensions()
+    result += i.getDrawString(imageLeft, y+h)
+
+    # Add the description
+    t.setString(description)
+    t.setBoxed(False)
+    t.gen()
+    result += t.getDrawString((descriptionLeft, y))
+
+    return result
+
+  # addWeatherDatapoint will add a new datapoint to the existing weather
+  # display.  This is purely addative and requires the first call to
+  # addWeatherStartOfDay to be called to establish the base view and the first
+  # datapoint.
+  def addWeatherDatapoint(self, clientId, time, temperature, description, conditionString):
+    logging.info("addWeatherDatapoint - received the request to add the next line to the weather display")
+
+    c = self.clientManager.getOrMakeClient(clientId) 
+    slot = c.getNextWeatherSlot()
+
+    middleColumnLeft = 1000
+
+    c.addNewDrawing( self.drawWeatherInfoSlotted(slot=slot, x=middleColumnLeft, time=time, temperature=temperature, description=description, conditionString=conditionString))
+    c.setNextWeatherSlot(slot+1)
+
+    self.send_response(200)
+    self.send_header('Content-type', 'text/html')
+    self.end_headers()
+
+  def addWeather(self, clientId, dayOfWeek, dayOfMonth, time, temperature,
+      minTemperature, maxTemperature, description, conditionString):
+    logging.info("addWeather - received the request to add the weather")
+    c = self.clientManager.getOrMakeClient(clientId)
+
+    s = ""
 
     # Seperator for the date from the weather
     l = bbshape.VLine(bbcs)
@@ -436,6 +615,7 @@ class MyHandler(BaseHTTPRequestHandler):
     rhsX = 1275
     rhsFullWidth = 2175
 
+    # Current temperature
     width = rhsFullWidth
     height = 375
     x = rhsX
@@ -504,30 +684,27 @@ class MyHandler(BaseHTTPRequestHandler):
     y = 490
     c.addNewDrawing(i.getDrawString(x, y))
 
-    self.send_response(200)
-    self.send_header('Content-type', 'text/html')
-    self.end_headers()
-
-  def updateWeather(self, clientId, time, temperature):
-    c = self.clientManager.getOrMakeClient(clientId)
-
-    rhsX = 1350
-    rhsFullWidth = 2100
-
-    width = rhsFullWidth
-    height = 325
-    x = rhsX
-    y = 625
-
-    s = bbcs.erasePortion(x, y, x+width, y+height, True)
-
+    y = 800
+    x = 250
+    width = 700
+    height = 250
     t = bbtext.Text(bbcs)
-    t.setBoxed(True)
-    t.setFontCharacteristics(os.path.join(os.path.dirname(__file__),'fonts','OpenSans-Bold.ttf'), 320)
-    t.setString(time + " - " + temperature)
+    t.setFontCharacteristics(os.path.join(os.path.dirname(__file__),'fonts','Exo2-Bold.otf'), 256)
+    t.setString(dayOfWeek)
     t.gen()
-    s += t.getDrawString((x, y, width, height))
-    c.addNewDrawing(s)
+    c.addNewDrawing(t.getDrawString((x, y, width, height)))
+
+    # Generate date component of the display
+    width = 700
+    height = 500
+    y = 140 + height
+    x = 275
+    
+    t = bbinversetextbox.InverseTextBox(bbcs, width, height)
+    t.setRoundedRectangle(True)
+    t.setString(dayOfMonth)
+    t.gen()
+    c.addNewDrawing(t.getDrawString(x, y))
 
     self.send_response(200)
     self.send_header('Content-type', 'text/html')
@@ -570,6 +747,9 @@ class MyHandler(BaseHTTPRequestHandler):
       self.showMainMenu("Queue cleared!")
     elif self.path == "/erase":
       clientId = self.args[CLIENT_ID][0]
+      veryClean = False
+      if "VERY_CLEAN" in self.args:
+        veryClean = True
 
       if "x1" in self.args:
         x1 = int(self.args["x1"][0])
@@ -578,7 +758,7 @@ class MyHandler(BaseHTTPRequestHandler):
         y2 = int(self.args["y2"][0])
         self.erasePortion(clientId, x1, y1, x2, y2, false)
       else:
-        self.erase(clientId)
+        self.erase(clientId, veryClean)
 
       self.showMainMenu("Erased!")
     elif self.path == "/addMockDrawing":
@@ -635,11 +815,31 @@ class MyHandler(BaseHTTPRequestHandler):
 
       self.showMainMenu("Showed weather")
 
-    elif self.path == "/updateWeather":
+    elif self.path == "/weatherStartOfDay":
+      clientId = self.args[CLIENT_ID][0]
+      dayOfWeek = self.args["dayOfWeek"][0]
+      dayOfMonth = self.args["dayOfMonth"][0]
+      time = self.args["time"][0]
+      temperature = self.args["temperature"][0]
+      minTemperature = self.args["minTemperature"][0]
+      maxTemperature = self.args["maxTemperature"][0]
+      description = self.args["description"][0]
+      condition = self.args["condition"][0]
+      self.addWeatherStartOfDay(clientId, dayOfWeek, dayOfMonth, time, temperature,
+          minTemperature, maxTemperature, description, condition)
+
+      self.showMainMenu("Showed weather start of day")
+
+    elif self.path == "/weatherDatapoint":
       clientId = self.args[CLIENT_ID][0]
       time = self.args["time"][0]
       temperature = self.args["temperature"][0]
-      self.updateWeather(clientId, time, temperature)
+      description = self.args["description"][0]
+      condition = self.args["condition"][0]
+      self.addWeatherDatapoint(clientId, time, temperature, description, condition)
+
+      self.showMainMenu("Showed weather datapoint")
+
 
     elif self.path.startswith("/puttext?"):
       clientId = self.args[CLIENT_ID][0]
@@ -707,7 +907,11 @@ def main():
   clientManager = ClientManager()
   try:
     handler = partial(MyHandler, clientManager)
-    server = ThreadingHTTPServer(('', config.port), handler)
+    if use_threaded_server:
+        server = ThreadingHTTPServer(('', config.port), handler)
+    else:
+        server = HTTPServer(('', config.port), handler)
+
     logging.info('Starting httpserver...')
     server.serve_forever()
   except KeyboardInterrupt:

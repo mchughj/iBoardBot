@@ -12,10 +12,24 @@ class Text(object):
     self.height = 0
     self.isBoxed = False
 
-  def setFontCharacteristics(self, font, size):
+  def setSizeBetweenCharacters(self, sizeBetweenCharacters):
+      self.sizeBetweenCharacters = sizeBetweenCharacters
+
+  def setSpaceSize(self, spaceSize):
+      self.spaceSize = spaceSize
+
+  def setFontCharacteristics(self, font, size, sizeBetweenCharacters=-1, spaceSize=-1):
     self.size = size
-    self.sizeBetweenCharacters = int(self.size/10)
-    self.spaceSize = self.sizeBetweenCharacters * 2
+    if sizeBetweenCharacters == -1:
+        self.sizeBetweenCharacters = int(self.size/10)
+    else:
+        self.sizeBetweenCharacters = sizeBetweenCharacters
+
+    if spaceSize == -1:
+        self.spaceSize = self.sizeBetweenCharacters * 2
+    else:
+        self.spaceSize = spaceSize
+
     self.face = freetype.Face(font)
     self.face.set_char_size(size)
 
@@ -28,6 +42,9 @@ class Text(object):
   def gen(self):
     self.width = 0
     self.height = 0
+    self.points = []
+    self.contours = []
+    self.dimensions = []
 
     for s in self.string:
       self.face.load_char(s)
@@ -35,18 +52,15 @@ class Text(object):
       bbox = self.face.bbox
 
       if len(o.points) == 0:
-        logging.info("gen - no point information; char: %s", s)
+        logging.debug("gen - no point information; char: '%s'", s)
         characterWidth = self.spaceSize
         characterHeight = 0
       else:
         characterWidth = max([ p[0] for p in o.points ])
         characterHeight = max([ p[1] for p in o.points ])
 
-        logging.info("gen - character info; char: %s, bbox.yMin: %d, "
-                     "bbox.yMax: %d, bbox.xMin: %d, bbox.xMax: %d, "
-                     "characterHeight: %d, characterWidth: %d",
-              s, bbox.yMin, bbox.yMax, bbox.xMin, bbox.xMax, 
-              characterHeight, characterWidth)
+        logging.debug("gen - character info; char: '%s', characterHeight: %d, characterWidth: %d",
+              s, characterHeight, characterWidth)
 
       self.width += characterWidth
       self.width += self.sizeBetweenCharacters 
@@ -54,14 +68,18 @@ class Text(object):
       if self.height < characterHeight:
         self.height = characterHeight
 
-      logging.info("gen - overall dimensions; width: %d, height: %d", 
-            self.width, self.height)
-
       self.points.append(o.points)
       self.contours.append(o.contours)
       self.dimensions.append((characterWidth, characterHeight))
-  
+
+    logging.info("gen - final overall text dimensions; width: %d, height: %d", 
+        self.width, self.height)
+
+
   def getDimensions(self):
+    return (self.width, self.height)
+
+  def getTextDimensions(self):
     return (self.width, self.height)
 
   def getTextLowerLeftX(self):
@@ -74,7 +92,7 @@ class Text(object):
 
     if len(dimensions) == 2:
       lowerLeftX, lowerLeftY = dimensions
-      result  = self.bbcs.liftPen()
+      result = self.bbcs.liftPen()
     elif len(dimensions) == 4:
       # Assumption here is that the text should be centered
       # relative to the lowerLeftX, lowerLeftY and width and 
@@ -97,6 +115,8 @@ class Text(object):
               "self.height: %d, width: %d, height: %d, lowerLeftX: %d, "
               "lowerLeftY: %d", self.width, self.height, width, height,
               lowerLeftX, lowerLeftY)
+
+    logging.info("getDrawString - going to draw; lowerLeftX: %d, lowerLeftY: %d", lowerLeftX, lowerLeftY)
 
     self.textStartLowerLeftX = lowerLeftX
     self.textStartLowerLeftY = lowerLeftY 

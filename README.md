@@ -59,7 +59,7 @@ The server code uses a few dependencies.
 * [freetype-py](https://github.com/rougier/freetype-py) library in order to generate images
 for text. 
 
-Use the generic 
+Use the following to get everything setup 
 
 ```
 pip install -r requirements.txt
@@ -93,6 +93,12 @@ or
 
 ```
 sudo journalctl -u weatherclient.service -f
+```
+
+If you want to restart the service process for the boardbot then use:
+
+```
+sudo systemctl restart boardbot.service
 ```
 
 ## Display

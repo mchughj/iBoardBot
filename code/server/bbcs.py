@@ -69,17 +69,17 @@ class Bbcs(object):
     # So to support this I just change into move mode
     return self.liftPen()
 
-  def eraseAll(self):
+  def eraseAll(self, offset=50, moveY=100):
     result = self.eraserDown()
     topY = 1200
     # Jason :: If you ever want to test the erase functionality without erasing everything.
     # topY = 200
-    for y in range(0, topY, 100):
+    for y in range(0, topY, moveY):
       result += self.moveTo(0, y)
       result += self.moveTo(3580, y)
       result += self.moveTo(0, y)
 
-    for y in range(topY-50, 0, -100):
+    for y in range(topY-offset, 0, -moveY):
       result += self.moveTo(0, y)
       result += self.moveTo(3580, y)
       result += self.moveTo(0, y)
