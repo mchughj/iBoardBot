@@ -20,6 +20,11 @@ class Image(object):
   def genFromFile(self, filename):
     fullFilename = os.path.join(os.path.dirname(__file__),filename)
     logging.info("genFromFile - loading file; fullFilename: %s", fullFilename)
+
+    if not os.path.exists(fullFilename):
+      logging.info("genFromFile - file does not exist returning nothing; fullFilename: %s", fullFilename)
+      self.contours = []
+    
     image = cv2.imread(fullFilename)
 
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -34,6 +39,7 @@ class Image(object):
   def genContours(self, image):
     contours, _ = cv2.findContours(image, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
+    logging.info("genContours - found contours; len: {}".format(len(contours)))
     # ret, thresh = cv2.threshold(gray,100,255,0)
     
     # Find the maximum x and y in order to come up with the scale factor

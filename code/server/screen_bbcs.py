@@ -66,7 +66,7 @@ class Bbcs(object):
     self.penIsDown = False
     return ""
 
-  def eraseAll(self):
+  def eraseAll(self, offset=0, moveY=0):
     self.screenNumber += 1
     self.mat = np.zeros((
       self.height,
