@@ -513,11 +513,17 @@ class MyHandler(BaseHTTPRequestHandler):
 
   def drawWeatherInfoSlotted(self, x, slot, time, temperature, description, iconFilename):
     # Draw a single 'row' in the slotted information as the day progresses.
+    # Overall it looks like this:
+    #
+    # +----------------------------------------------------------------------------------+
+    # | Hour | am/pm |  Temperature  | Image | Description (roughly 12 characters)       |
+    # +----------------------------------------------------------------------------------+
+    #
     hourLeft = x + 100
     ampmLeft = x + 350
     temperatureLeft = x + 600 
-    imageLeft = x + 1000
-    descriptionLeft = x + 1220
+    imageLeft = x + 1010
+    descriptionLeft = x + 1255
 
     height = 150
     y = 950 - (slot * 200) 
@@ -588,8 +594,6 @@ class MyHandler(BaseHTTPRequestHandler):
       minTemperature, maxTemperature, description, conditionString):
     logging.info("addWeather - received the request to add the weather")
     c = self.clientManager.getOrMakeClient(clientId)
-
-    s = ""
 
     # Seperator for the date from the weather
     l = bbshape.VLine(bbcs)
