@@ -441,6 +441,10 @@ class MyHandler(BaseHTTPRequestHandler):
   # weather information available at the start of the day.  As the day
   # progresses then the additional datapoints, however many there are, are
   # added to the same board without clearing the screen.  
+  #
+  # Here is an example URL invocation:
+  #   http://localhost:8080/weatherStartOfDay?ID_IWBB=111&dayOfWeek=Wed&dayOfMonth=2&time=12&temperature=101&minTemperature=32&maxTemperature=132&description=Cloudy&condition=CLOUDY&iconFilename=w/rain.png
+  #
   def addWeatherStartOfDay(self, clientId, dayOfWeek, dayOfMonth, time, temperature,
       minTemperature, maxTemperature, description, iconFilename):
     logging.info("addWeatherStartOfDay - received the request to add the weather")
@@ -451,13 +455,13 @@ class MyHandler(BaseHTTPRequestHandler):
     # The display is setup in two regions
     #
     # +----------------------------------------------------------------------------------+
-    # |             |                          Time 1 - Temperature  X                   |
-    # |    Weds     |                          Time 2 - Temperature  Y                   |
-    # |             |                                                                    |
+    # |    Weds     |                          Time 1 - Temperature  X                   |
+    # |             |                          Time 2 - Temperature  Y                   |
     # |    DAY      |                                                                    |
     # |  Of MONTH   |                                                                    |
     # |             |                                                                    |
-    # |             |                                                                    |
+    # |  Min/Max    |                                                                    |
+    # |   Temp      |                                                                    |
     # +----------------------------------------------------------------------------------+
     #        middleColumnLeft     
     middleColumnLeft = 1000
@@ -477,7 +481,7 @@ class MyHandler(BaseHTTPRequestHandler):
     # ------------------
 
     # Draw the day of the week (e.g., "Wed").
-    y = 800
+    y = 850
     x = 200
     width = 700
     height = 250
@@ -490,7 +494,7 @@ class MyHandler(BaseHTTPRequestHandler):
     # Generate date component of the display
     width = 700
     height = 500
-    y = 140 + height
+    y = 300 + height
     x = 225
     
     t = bbinversetextbox.InverseTextBox(bbcs, width, height)
@@ -498,6 +502,20 @@ class MyHandler(BaseHTTPRequestHandler):
     t.setString(dayOfMonth)
     t.gen()
     c.addNewDrawing(t.getDrawString(x, y))
+
+    # Draw the estimated range of min and max temperature.  
+    # This isn't super accurate but Kathi likes to see it.
+    y = 80
+    x = 225
+    width = 700
+    height = 120
+    
+    t = bbtext.Text(bbcs)
+    t.setFontCharacteristics(os.path.join(os.path.dirname(__file__),'fonts','Exo2-Bold.otf'), 128)
+    t.setString(minTemperature + " / " + maxTemperature)
+    t.setBoxed(False)
+    t.gen()
+    c.addNewDrawing(t.getDrawString((x, y, width, height)))
 
     # -----------------
     # Draw right region
