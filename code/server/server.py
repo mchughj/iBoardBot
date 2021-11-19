@@ -495,7 +495,7 @@ class MyHandler(BaseHTTPRequestHandler):
     width = 700
     height = 500
     y = 300 + height
-    x = 225
+    x = 210
     
     t = bbinversetextbox.InverseTextBox(bbcs, width, height)
     t.setRoundedRectangle(True)
@@ -506,12 +506,12 @@ class MyHandler(BaseHTTPRequestHandler):
     # Draw the estimated range of min and max temperature.  
     # This isn't super accurate but Kathi likes to see it.
     y = 80
-    x = 225
+    x = 210
     width = 700
     height = 120
     
     t = bbtext.Text(bbcs)
-    t.setFontCharacteristics(os.path.join(os.path.dirname(__file__),'fonts','Exo2-Bold.otf'), 128)
+    t.setFontCharacteristics(os.path.join(os.path.dirname(__file__),'fonts','cnc_v.ttf'), size=128, sizeBetweenCharacters=20, spaceSize=35)
     t.setString(minTemperature + " / " + maxTemperature)
     t.setBoxed(False)
     t.gen()
