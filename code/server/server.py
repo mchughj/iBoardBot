@@ -506,7 +506,7 @@ class MyHandler(BaseHTTPRequestHandler):
     # Draw the estimated range of min and max temperature.  
     # This isn't super accurate but Kathi likes to see it.
     y = 80
-    x = 210
+    x = 225
     width = 700
     height = 120
     
