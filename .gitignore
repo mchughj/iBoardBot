@@ -8,3 +8,4 @@ runme.bat
 ***/*.swo
 github_token.txt
 code/weatherClient/forecastResults.txt
+***/env/

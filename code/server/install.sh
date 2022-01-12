@@ -1,6 +1,7 @@
 #!/bin/bash
-echo "Checking for virtual env named 'cv'"
-FILE=/home/pi/.virtualenvs/cv
+
+echo "Checking for virtual env named 'env'"
+FILE=`pwd`/env
 if [ ! -d $FILE ]; then
   echo "Unable to find directory: $FILE"
   exit 1

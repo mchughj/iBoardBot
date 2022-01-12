@@ -14,9 +14,12 @@ client.)
 
 ## Server process
 
-A server process can be started with 
+To start the server for the first time use:  
 ```
 cd code\server
+python3 -m virtualenv --python=python3 env
+source env/bin/activate
+python3 -m pip install -r requirements.txt
 python server.py
 ```
 There are a lot of customizations which can be seen using the *--help* option.  
@@ -49,30 +52,21 @@ For a demonstration of the server, an automatically triggering client, and the b
 
 ## Dependencies
 
-Most of the work done here is in Python 3.  If you are using Python 2 then you
-will have to upgrade.  
+Most of the work done here is in Python 3.  If you are using Python 2 then you will have to upgrade.  
 
-The server code uses a few dependencies.  
+The server code uses a few dependencies as captured by the requirements.txt in the various code directories.
 
 * OpenCV Python 4.1.2 - lots of useful graphical manipulations
 * Requests library - easier to make http requests
 * [freetype-py](https://github.com/rougier/freetype-py) library in order to generate images
 for text. 
 
-Use the following to get everything setup 
-
-```
-pip install -r requirements.txt
-```
-
-to install all current dependencies.
-
 All fonts included here are available via the SIL Open Font license.  More can 
 be found at [Font Squirrel](https://www.fontsquirrel.com/fonts/list/popular).
 
 ## Installation in Linux systems
 
-I've moved the server process, along with the periodic weather client, over to a Raspberry PI and am running all server processes using systemd. 
+I've moved the server process, along with the periodic weather client, to work on both a Raspberry PI as well as a vanilla Ubuntu box.   In these environments the server processes are all nannied via systemd. 
 
 To 'install' and get the server and weather client working use
 
@@ -83,7 +77,7 @@ cd ../weatherClient/
 ./install.sh
 ```
 
-From this point forward the services will be restarted automatically on startup of the Raspberry PI.  To see the logs use
+From this point forward the services will be restarted automatically on startup of the Linux box.  To see the logs use
 
 ```
 sudo journalctl -u boardbot.service -f
@@ -101,9 +95,11 @@ If you want to restart the service process for the boardbot then use:
 sudo systemctl restart boardbot.service
 ```
 
+All install.sh scripts also create various useful shortcuts such as 'showLogs.sh' and 'stopService.sh'.  
+
 ## Display
 
-I've decided to host the server on a raspberry PI and put a 4" HDMI screen on top of the PI for a simple UI.   I purchased one from Miuzei and used these instructions to get the touch component working.
+I have experimented with hosting the server on the raspberr PI and put a 4" HDMI screen on top of the PI for a simple UI.   I purchased one from Miuzei and used these instructions to get the touch component working.
 
 ```
 sudo rm -rf LCD-show

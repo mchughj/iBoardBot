@@ -919,7 +919,7 @@ def main():
     else:
         server = HTTPServer(('', config.port), handler)
 
-    logging.info('Starting httpserver...')
+    logging.info(f'Starting httpserver on port {config.port}...')
     server.serve_forever()
   except KeyboardInterrupt:
     logging.info('^C received, shutting down server')
