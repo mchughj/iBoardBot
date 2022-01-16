@@ -60,10 +60,10 @@ void setup()
   delay(1000);
 
   // Manual Configuration mode? => Erase stored Wifi parameters (force A0 to ground)
-  if (digitalRead(A0) == LOW)
+  if (digitalRead(A0) == LOW) {
     writeWifiConfig(0, "", "", "", 0);
-  //writeWifiConfig(0,"","","",0); // Force config
-
+  }
+  
 #ifdef DEBUG
   delay(10000);  // Only needed for serial debug
   Serial.println(VERSION);
@@ -227,19 +227,21 @@ void setup()
   // Ready signal
   enableServo1();
   enableServo2();
-  moveServo2(SERVO2_PAINT - 200);
-  delay(300);
+
+  // A bit more obvious
+  moveServo2(SERVO2_LIFT);
+  delay(600);
   moveServo2(SERVO2_PAINT);
-  delay(300);
-  moveServo2(SERVO2_PAINT - 200);
-  delay(300);
+  delay(600);
+  moveServo2(SERVO2_LIFT);
+  delay(600);
   moveServo2(SERVO2_PAINT);
-  delay(1000);
+  delay(2000);
   if (Wconnected) {
-    moveServo2(SERVO2_PAINT - 200);
-    delay(300);
+    moveServo2(SERVO2_LIFT);
+    delay(1000);
     moveServo2(SERVO2_PAINT);
-    delay(300);
+    delay(1000);
   }
 
   disableServo1();
@@ -725,9 +727,3 @@ void loop()
     } // draw task
   } // 1Khz loop
 }
-
-
-
-
-
-

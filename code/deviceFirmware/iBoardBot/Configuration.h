@@ -2,11 +2,13 @@
 #include <stdint.h>
 
 // JM :: Original
+//
 // #define SERVER_HOST "ibb.jjrobots.com"
 // #define SERVER_URL "http://ibb.jjrobots.com/ibbsvr/ibb.php"
-
-#define SERVER_HOST "192.168.0.131"
-#define SERVER_URL "http://192.168.0.131/ibb-device/"
+//
+// The values below capture the Ubuntu box under my desk in my office.
+#define SERVER_HOST "192.168.50.151"
+#define SERVER_URL "http://192.168.50.151/ibb-device/"
 
 #define MAX_PACKET_SIZE 768
 
@@ -42,8 +44,12 @@
 #define SERVO1_NOERASER 1900
 #define SERVO1_ERASER 1180
 
-#define SERVO2_LIFT 1290 //1300
-#define SERVO2_PAINT 1660 //1650
+// Servo values for the motor that disengages both the pen and the eraser.
+// A smaller value here moves the horn on the servo inwards towards the
+// face of the drawing surface.   A value of 1660, turns the servo head
+// to point to the left away from the drawing surface.
+#define SERVO2_LIFT 890
+#define SERVO2_PAINT 1660
 
 #define SERVO_SPEED 2   //4 // Servo move speed (higher is quicker), recommended:2
 
