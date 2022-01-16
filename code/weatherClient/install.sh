@@ -1,9 +1,11 @@
 #!/bin/bash
 echo "This script will install the weatherClient as a service in linux land"
-echo "Checking for virtual env named 'cv'"
-FILE=/home/pi/.virtualenvs/cv
+
+echo "Checking for virtual env named 'env'"
+FILE=`pwd`/env
 if [ ! -d $FILE ]; then
   echo "Unable to find directory: $FILE"
+  echo "Make sure that you make this with /usr/bin/python3.7"
   exit 1
 fi
 

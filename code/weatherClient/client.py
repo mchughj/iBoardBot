@@ -249,11 +249,14 @@ class WeatherManager(object):
   def _runForever(self):
     logging.info("_runForever - on enter; runImmediately: %s", self.runImmediately)
     if self.runImmediately:
+      # When told to run immediately then this is because I'm kicking it off manually.
+      # In this case we do not need to do the clean operation as I've likely already
+      # done it myself. 
       self.trackDayChanges()
       if config.doIncrementalDaily:
-        self.fullRefresh(resource="/weatherStartOfDay", includeIconFilename=True)
+        self.fullRefresh(resource="/weatherStartOfDay", includeIconFilename=True, doCleanFirst=False)
       else:   
-        self.fullRefresh()
+        self.fullRefresh(doCleanFirst=False)
 
     lastReportHour = -1
     while True:
@@ -316,7 +319,7 @@ class WeatherManager(object):
         params = boardBotParams)
     return boardRequest.ok
 
-  def fullRefresh(self, resource = "/weather", includeIconFilename = False):
+  def fullRefresh(self, resource = "/weather", includeIconFilename = False, doCleanFirst = True):
     data = None
     self.lastFullRefresh = time.time()
     self.priorHour = time.localtime()[3]
@@ -363,15 +366,16 @@ class WeatherManager(object):
         currentTemp, tempMin, tempMax, description, condition, conditionString)
 
     try:
-      # Make the request to the boardBot server instance.  First clear the screen and then
+      # Make the request to the boardBot server instance.  First clear the screen if instructed.  Then
       # do the full weather update.
-      boardBotParams = {'ID_IWBB': CLIENT_ID, 'VERY_CLEAN': True}
-      boardRequest = requests.get(
-          url = "http://{url}:{port}/erase".format(url=config.serverName, port=config.serverPort),
-          params = boardBotParams)
-      if not boardRequest.ok:
-        logging.info("fullRefresh - error in clearing the board")
-        return False
+      if doCleanFirst:
+        boardBotParams = {'ID_IWBB': CLIENT_ID, 'VERY_CLEAN': True}
+        boardRequest = requests.get(
+            url = "http://{url}:{port}/erase".format(url=config.serverName, port=config.serverPort),
+            params = boardBotParams)
+        if not boardRequest.ok:
+          logging.info("fullRefresh - error in clearing the board")
+          return False
 
       boardBotParams = {
           'ID_IWBB': CLIENT_ID,
