@@ -369,6 +369,7 @@ class WeatherManager(object):
       # Make the request to the boardBot server instance.  First clear the screen if instructed.  Then
       # do the full weather update.
       if doCleanFirst:
+        logging.info("fullRefresh - doing clean first")
         boardBotParams = {'ID_IWBB': CLIENT_ID, 'VERY_CLEAN': True}
         boardRequest = requests.get(
             url = "http://{url}:{port}/erase".format(url=config.serverName, port=config.serverPort),
@@ -471,6 +472,12 @@ class MyHandler(BaseHTTPRequestHandler):
     self.weatherManager = weatherManager
     super(MyHandler, self).__init__(*args, **kwargs)
 
+  def _extractCleanFromArgs(self, args, default):
+    try:
+      return args["clean"] == 1
+    except KeyError:
+      return default
+
   def sendText(self, s):
     self.wfile.write(bytes(s,"utf-8"))
 
@@ -493,7 +500,7 @@ class MyHandler(BaseHTTPRequestHandler):
     elif self.path == "/doFull":
       if config.doIncrementalDaily:
         logging.info("Received a request to do a full refresh of the weather - doing incremental version - start of the day!")
-        self.weatherManager.fullRefresh(resource="/weatherStartOfDay", includeIconFilename=True)
+        self.weatherManager.fullRefresh(resource="/weatherStartOfDay", includeIconFilename=True, doCleanFirst=self._extractCleanFromArgs(self.args, True))
       else:   
         logging.info("Received a request to do a full refresh of the weather - doing full")
         self.weatherManager.fullRefresh()
@@ -525,7 +532,7 @@ class MyHandler(BaseHTTPRequestHandler):
     self.sendText("Main iBoardBot server can be found <a href=\"http://{IP}/\">here</a>.<BR>".format(IP=getIP()))
     self.sendText("<br>")
 
-    self.sendText("Do <a href=\"/doFull\">full Update</a> now.<BR>")
+    self.sendText("Do <a href=\"/doFull?clean=1\">full Update with clean</a> or <a href=\"/doFull?clean=0\">full update no clean</a> now.<BR>")
     self.sendText("Add a <a href=\"/doWeatherDatapoint\">weather datapoint</a> now.<BR>")
     self.sendText("<br>")
     

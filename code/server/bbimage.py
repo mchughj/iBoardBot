@@ -24,6 +24,7 @@ class Image(object):
     if not os.path.exists(fullFilename):
       logging.info("genFromFile - file does not exist returning nothing; fullFilename: %s", fullFilename)
       self.contours = []
+      return False
     
     image = cv2.imread(fullFilename)
 
@@ -32,6 +33,7 @@ class Image(object):
     edged = cv2.Canny(gray, 30, 200)
 
     self.genContours(edged)
+    return True
 
   def genFromImage(self, image):
     self.genContours(image)

@@ -577,7 +577,12 @@ class MyHandler(BaseHTTPRequestHandler):
 
     i = bbimage.Image(bbcs)
     i.setImageCharacteristics(1)
-    i.genFromFile("imgs/{}".format(iconFilename))
+    foundFile = i.genFromFile("imgs/{}".format(iconFilename))
+
+    if not foundFile:
+      logging.info("drawWeatherInfoSlotted - could not find iconFilename, falling back to question")
+      i.genFromFile("imgs/w/question.png")
+
     (w, h) = i.getDimensions()
     result += i.getDrawString(imageLeft, y+h)
 
@@ -748,6 +753,10 @@ class MyHandler(BaseHTTPRequestHandler):
       self.showMainMenu()
     elif self.path == "/favicon.ico":
       self.send_error(404)
+    elif self.path == "/ping":
+      self.send_response(200)
+      self.send_header('Content-type', 'text/html')
+      self.end_headers()
     elif self.path == "/clearQueue":
       clientId = self.args[CLIENT_ID][0]
       self.clearQueue(clientId)
@@ -882,20 +891,26 @@ class MyHandler(BaseHTTPRequestHandler):
 
     # Any result which has less than 6 bytes in the body is considered to
     # be an empty result and will cause the device to repoll at a later time.
-    self.send_response(200)
-    self.send_header('Content-type', 'text/html')
-    self.send_header("Content-Length", "2")
-    self.end_headers()
-    self.sendText("OK")
+    try:
+      self.send_response(200)
+      self.send_header('Content-type', 'text/html')
+      self.send_header("Content-Length", "2")
+      self.end_headers()
+      self.sendText("OK")
+    except BaseException as e:
+      logging.warn("sendingDeviceEmptyResult - got an exception; e: %s", str(e))
 
   def sendDeviceResult(self, data):
     logging.info("sendDeviceResult - onEnter;")
 
-    self.send_response(200)
-    self.send_header('Content-type', 'text/html')
-    self.send_header("Content-Length", str(len(data)))
-    self.end_headers()
-    self.wfile.write(data)
+    try:
+      self.send_response(200)
+      self.send_header('Content-type', 'text/html')
+      self.send_header("Content-Length", str(len(data)))
+      self.end_headers()
+      self.wfile.write(data)
+    except BaseException as e:
+      logging.warn("sendDeviceResult - got an exception; e: %s", str(e))
 
 
   def do_POST(self):
@@ -908,23 +923,24 @@ class MyHandler(BaseHTTPRequestHandler):
     self.send_header("Content-Length", "2")
     self.end_headers()
     self.wfile.write("OK")
-
   
 def main():
   clientManager = ClientManager()
   try:
     handler = partial(MyHandler, clientManager)
     if use_threaded_server:
+        logging.info(f"Using threading HTTP Server")
         server = ThreadingHTTPServer(('', config.port), handler)
     else:
+        logging.info(f"Using standard HTTP Server")
         server = HTTPServer(('', config.port), handler)
 
-    logging.info(f'Starting httpserver on port {config.port}...')
+    logging.info(f"Starting httpserver on port {config.port}...")
     server.serve_forever()
   except KeyboardInterrupt:
-    logging.info('^C received, shutting down server')
+    logging.info("^C received, shutting down server")
     server.socket.close()
-  logging.info('Stopping...')
+  logging.info("Stopping...")
 
 if __name__ == '__main__':
   main()

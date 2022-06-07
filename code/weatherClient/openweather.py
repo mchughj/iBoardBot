@@ -10,10 +10,11 @@ class WeatherType:
     shorter_description: str
     icon_filename: str
 
+# Shorter_descriptions of up to 12 characters appear to do well.
 allWeatherTypes = [
-    WeatherType( 200, "THUNDERSTORM WITH LIGHT RAIN", "STORM, LT RAIN", "w/storm-light-rain.png"),
+    WeatherType( 200, "THUNDERSTORM WITH LIGHT RAIN", "STORM LT RAIN", "w/storm-light-rain.png"),
     WeatherType( 201, "THUNDERSTORM WITH RAIN", "STORM & RAIN", "w/storm-rain.png"),
-    WeatherType( 202, "THUNDERSTORM WITH HEAVY RAIN", "STORM HEAVY RAIN", "w/storm-rain.png"),
+    WeatherType( 202, "THUNDERSTORM WITH HEAVY RAIN", "STORM AND RAIN", "w/storm-rain.png"),
     WeatherType( 210, "LIGHT THUNDERSTORM", "LIGHT STORM", "w/storm.png"),
     WeatherType( 211, "THUNDERSTORM", "STORM", "w/storm.png"),
     WeatherType( 212, "HEAVY THUNDERSTORM", "HEAVY STORM", "w/storm-heavy.png"),
@@ -63,7 +64,7 @@ allWeatherTypes = [
     WeatherType( 781, "TORNADO", "TORNADO", "w/Question.png"),
     WeatherType( 800, "CLEAR SKY", "CLEAR SKY", "w/sunny.png"),
     WeatherType( 801, "FEW CLOUDS", "FEW CLOUDS", "w/clouds-light.png"),
-    WeatherType( 802, "SCATTERED CLOUDS", "SCATTERED CLOUDS", "w/clouds-light.png"),
+    WeatherType( 802, "SCATTERED CLOUDS", "FEW CLOUDS", "w/clouds-light.png"),
     WeatherType( 803, "BROKEN CLOUDS", "BROKEN CLOUDS", "w/clouds.png"),
     WeatherType( 804, "OVERCAST CLOUDS", "OVERCAST", "w/clouds.png"),
 ]
