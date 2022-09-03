@@ -48,7 +48,18 @@
 // A smaller value here moves the horn on the servo inwards towards the
 // face of the drawing surface.   A value of 1660, turns the servo head
 // to point to the left away from the drawing surface.
-#define SERVO2_LIFT 890
+
+// Jason :: Note: on 9/2/2022 I changed the SERVO2_LIFT from 890 to 1110
+// because it was rotating further during warm weather and as a result
+// rotating far enough that it left a line from the last point to draw
+// back to the home position.  If the last position drawn was close enough
+// to home then the servo wouldn't rotate far enough in order to leave a
+// mark.  But really this entire firmware is too simplistic.  It doesn't
+// wait for things to happen and relies on timing and magic in order to
+// ensure that things happen on time.  5 years in to having this with
+// various fixes to ensure that it continues to run and the cracks are
+// showing.
+#define SERVO2_LIFT 1100
 #define SERVO2_PAINT 1660
 
 #define SERVO_SPEED 2   //4 // Servo move speed (higher is quicker), recommended:2
