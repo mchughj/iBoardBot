@@ -244,6 +244,13 @@ void setup()
     delay(1000);
   }
 
+  for( int i=0; i<10; i++) {
+     moveServo1(SERVO1_ERASER);
+     delay(1000);
+     moveServo1(SERVO1_NOERASER);
+     delay(1000);
+  }
+
   disableServo1();
   disableServo2();
 }
